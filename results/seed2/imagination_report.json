@@ -1,0 +1,260 @@
+[
+ {
+  "subject": "known positive: scene engine",
+  "verdict": "standing scene",
+  "reasons": [
+   "composition accuracy 1.00 (threshold 0.9)",
+   "whole scene decodable before the question at layer 1 (probe 1.00)",
+   "transplanting that scene site makes the answer follow the other world 100% of the time (layer 1)"
+  ],
+  "behaviour": {
+   "accuracy": 1.0,
+   "composition": 1.0,
+   "stated_pairs": 1.0,
+   "shuffle_consistency": 1.0,
+   "longer_worlds": 1.0
+  },
+  "probes": {
+   "1:scene": {
+    "acc": 1.0,
+    "untrained": null,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "1:X": {
+    "acc": 1.0,
+    "untrained": null,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "1:Y": {
+    "acc": 1.0,
+    "untrained": null,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   }
+  },
+  "tracing": {
+   "1:scene": 1.0,
+   "1:X": 0.49875,
+   "1:Y": 0.5275,
+   "1:ANS": 1.0
+  },
+  "subspace": {
+   "1": {
+    "dims": 4,
+    "full": 1.0,
+    "rank": 1.0,
+    "random": 0.7275
+   }
+  }
+ },
+ {
+  "subject": "known negative: surface heuristic",
+  "verdict": "no imagination",
+  "reasons": [
+   "composition accuracy 0.50 (threshold 0.9)"
+  ],
+  "behaviour": {
+   "accuracy": 0.9556666666666667,
+   "composition": 0.4962121212121212,
+   "stated_pairs": 1.0,
+   "shuffle_consistency": 0.9366666666666666,
+   "longer_worlds": 0.848
+  },
+  "probes": {
+   "1:scene": {
+    "acc": 0.5994659314691461,
+    "untrained": null,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "1:X": {
+    "acc": 0.5933333333333334,
+    "untrained": null,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "1:Y": {
+    "acc": 0.6008333333333333,
+    "untrained": null,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   }
+  },
+  "tracing": {
+   "1:scene": 0.94875,
+   "1:X": 0.24125,
+   "1:Y": 0.2775,
+   "1:ANS": 0.94875
+  },
+  "subspace": {
+   "1": {
+    "dims": 3,
+    "full": 0.4375,
+    "rank": 0.42125,
+    "random": 0.4325
+   }
+  }
+ },
+ {
+  "subject": "plain transformer",
+  "verdict": "no imagination",
+  "reasons": [
+   "composition accuracy 0.73 (threshold 0.9)"
+  ],
+  "behaviour": {
+   "accuracy": 0.9106666666666666,
+   "composition": 0.7310606060606061,
+   "stated_pairs": 0.867109634551495,
+   "shuffle_consistency": 0.8166666666666667,
+   "longer_worlds": 0.772
+  },
+  "probes": {
+   "0:scene": {
+    "acc": 0.20825287587657973,
+    "untrained": 0.20825287587657973,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "0:X": {
+    "acc": 0.19083333333333333,
+    "untrained": 0.19083333333333333,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "0:Y": {
+    "acc": 0.2025,
+    "untrained": 0.2025,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   },
+   "1:scene": {
+    "acc": 0.3639394071979824,
+    "untrained": 0.3186954913575933,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "1:X": {
+    "acc": 0.21333333333333335,
+    "untrained": 0.2125,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "1:Y": {
+    "acc": 0.22666666666666666,
+    "untrained": 0.21333333333333335,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   },
+   "2:scene": {
+    "acc": 0.3306469905551903,
+    "untrained": 0.3130391619382048,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "2:X": {
+    "acc": 0.4741666666666667,
+    "untrained": 0.215,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "2:Y": {
+    "acc": 0.47833333333333333,
+    "untrained": 0.21333333333333335,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   },
+   "3:scene": {
+    "acc": 0.351946205851464,
+    "untrained": 0.31435790134574687,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "3:X": {
+    "acc": 0.4766666666666667,
+    "untrained": 0.205,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "3:Y": {
+    "acc": 0.49,
+    "untrained": 0.215,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   },
+   "4:scene": {
+    "acc": 0.36375378761876587,
+    "untrained": 0.31152897647377936,
+    "surface": 0.5999626105574832,
+    "chance": 0.2
+   },
+   "4:X": {
+    "acc": 0.4708333333333333,
+    "untrained": 0.19916666666666666,
+    "surface": 0.5933333333333334,
+    "chance": 0.2
+   },
+   "4:Y": {
+    "acc": 0.49333333333333335,
+    "untrained": 0.21333333333333335,
+    "surface": 0.6008333333333333,
+    "chance": 0.2
+   }
+  },
+  "tracing": {
+   "0:scene": 0.09,
+   "0:X": 0.09,
+   "0:Y": 0.09,
+   "0:ANS": 0.09,
+   "1:scene": 0.1,
+   "1:X": 0.17375,
+   "1:Y": 0.2075,
+   "1:ANS": 0.11625,
+   "2:scene": 0.17375,
+   "2:X": 0.31375,
+   "2:Y": 0.2975,
+   "2:ANS": 0.3025,
+   "3:scene": 0.15625,
+   "3:X": 0.29375,
+   "3:Y": 0.28125,
+   "3:ANS": 0.46125,
+   "4:scene": 0.09,
+   "4:X": 0.09,
+   "4:Y": 0.09,
+   "4:ANS": 0.9
+  },
+  "subspace": {
+   "0": {
+    "dims": 4,
+    "full": 0.17625,
+    "rank": 0.17625,
+    "random": 0.17625
+   },
+   "1": {
+    "dims": 4,
+    "full": 0.2675,
+    "rank": 0.1725,
+    "random": 0.17
+   },
+   "2": {
+    "dims": 4,
+    "full": 0.58625,
+    "rank": 0.1925,
+    "random": 0.18625
+   },
+   "3": {
+    "dims": 4,
+    "full": 0.59,
+    "rank": 0.19125,
+    "random": 0.175
+   },
+   "4": {
+    "dims": 4,
+    "full": 0.17625,
+    "rank": 0.17625,
+    "random": 0.17625
+   }
+  }
+ }
+]
