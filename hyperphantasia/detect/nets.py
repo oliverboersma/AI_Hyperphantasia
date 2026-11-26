@@ -319,9 +319,10 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
           checkpoint: Path | None = None, curriculum: bool = False):
     """Train on answers only. With ``checkpoint``, progress is saved and resumed.
 
-    By default every batch mixes worlds of 2 to 6 letters. ``curriculum=True``
-    starts with tiny worlds and grows them; in our runs that taught the plain
-    transformer a position-bound shortcut that breaks on larger worlds.
+    By default every batch mixes worlds of 2 to ``max_train_n`` letters.
+    ``curriculum=True`` starts with tiny worlds and grows them. With premises
+    packed against the question ("absolute") that taught the plain transformer
+    a position-bound shortcut; with randomly slotted premises it cannot.
     """
     rng = np.random.default_rng(seed)
     params = init(cfg, seed)

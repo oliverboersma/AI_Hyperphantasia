@@ -44,6 +44,8 @@ def main(argv=None) -> int:
     ap.add_argument("--cache", default=".cache/detect")
     ap.add_argument("--out", default="results")
     ap.add_argument("--kinds", default="plain,slots")
+    ap.add_argument("--no-curriculum", action="store_true",
+                    help="mix all world sizes from the start (default: small worlds first)")
     ap.add_argument("--also", action="append", default=[],
                     help="extra trained network to examine, as PATH=NAME (e.g. an earlier run)")
     args = ap.parse_args(argv)
@@ -64,14 +66,15 @@ def main(argv=None) -> int:
     from . import nets
     for kind in args.kinds.split(","):
         cfg = nets.NetConfig(kind=kind)
-        path = Path(args.cache) / f"{kind}_seed{args.seed}_steps{args.steps}.pkl"
+        cur = not args.no_curriculum
+        path = Path(args.cache) / f"{kind}_seed{args.seed}_steps{args.steps}{'_curriculum' if cur else ''}.pkl"
         if path.exists() and not args.retrain:
             cfg, params, log = nets.load(path)
             print(f"2. loaded trained {kind} network from {path}")
         else:
             print(f"2. training {kind} network (answers only, {args.steps} steps max)")
             t = time.time()
-            params, log = nets.train(cfg, steps=args.steps, seed=args.seed,
+            params, log = nets.train(cfg, steps=args.steps, seed=args.seed, curriculum=cur,
                                      checkpoint=path.with_suffix(".ckpt"))
             nets.save(path, cfg, params, log)
             print(f"   trained in {time.time() - t:.0f}s")
