@@ -129,7 +129,8 @@ no.
 ## 5. Subjects
 
 Both networks are trained **only on the yes/no answer**. Nothing about the scene is supervised.
-The only shaping is a curriculum on world size (two letters first, up to six).
+Every training batch mixes worlds of two to six letters. An earlier run that started with tiny
+worlds and grew them is examined too, because it learned something instructive (see results).
 
 * **Plain transformer**: 4 layers, width 64, 4 heads, causal attention over the whole sequence.
   Any imagination it has is an invention of its mechanism.

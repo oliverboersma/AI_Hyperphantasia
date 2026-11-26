@@ -188,10 +188,15 @@ def accuracy(params, cfg, problems) -> float:
     return float((np.asarray(logits).argmax(-1) == W.labels(problems)).mean())
 
 
-def train(cfg: NetConfig, steps: int = 6000, batch: int = 128, lr: float = 2e-3, seed: int = 0,
+def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3, seed: int = 0,
           log_every: int = 500, target: float = 0.995, verbose: bool = True,
-          checkpoint: Path | None = None):
-    """Train on answers only. With ``checkpoint``, progress is saved and resumed."""
+          checkpoint: Path | None = None, curriculum: bool = False):
+    """Train on answers only. With ``checkpoint``, progress is saved and resumed.
+
+    By default every batch mixes worlds of 2 to 6 letters. ``curriculum=True``
+    starts with tiny worlds and grows them; in our runs that taught the plain
+    transformer a position-bound shortcut that breaks on larger worlds.
+    """
     rng = np.random.default_rng(seed)
     params = init(cfg, seed)
     zeros = jax.tree_util.tree_map(jnp.zeros_like, params)
@@ -208,9 +213,8 @@ def train(cfg: NetConfig, steps: int = 6000, batch: int = 128, lr: float = 2e-3,
         if verbose:
             print(f"  [{cfg.kind}] resumed at step {first}", flush=True)
     for s in range(first, steps + 1):
-        # Curriculum on world size only (2 letters first, up to 6). Nothing about the
-        # internal scene is supervised: only the yes/no answer is ever trained.
-        max_n = min(6, 3 + int(4 * s / (0.6 * steps)))
+        # Only the yes/no answer is ever trained; nothing about the scene is supervised.
+        max_n = min(6, 3 + int(4 * s / (0.6 * steps))) if curriculum else 6
         probs = W.batch(rng, batch, ns=tuple(range(2, max_n + 1)))
         cur_lr = lr * min(1.0, s / 200) * (0.5 * (1 + math.cos(math.pi * s / steps)) * 0.9 + 0.1)
         params, opt, loss = _step(params, opt, jnp.asarray(encode(cfg, probs)),

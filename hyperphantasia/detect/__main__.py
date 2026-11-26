@@ -44,6 +44,8 @@ def main(argv=None) -> int:
     ap.add_argument("--cache", default=".cache/detect")
     ap.add_argument("--out", default="results")
     ap.add_argument("--kinds", default="plain,slots")
+    ap.add_argument("--also", action="append", default=[],
+                    help="extra trained network to examine, as PATH=NAME (e.g. an earlier run)")
     args = ap.parse_args(argv)
 
     sections, rows = [], []
@@ -83,6 +85,18 @@ def main(argv=None) -> int:
         for r in v.reasons:
             print(f"     - {r}")
         sections.append(report.section(ev, v, NOTES[kind]))
+        rows.append(report.to_json(ev, v))
+
+    for spec in args.also:
+        path, name = spec.split("=", 1)
+        cfg, params, _ = nets.load(Path(path))
+        subject = NeuralSubject(cfg, params, name)
+        control = NeuralSubject(cfg, nets.init(cfg, args.seed + 99), f"untrained {name}")
+        print(f"3. examining {name}")
+        ev = battery.examine(subject, control, quick=args.quick)
+        v = verdict.judge(ev)
+        print(f"   verdict: {v.label}")
+        sections.append(report.section(ev, v))
         rows.append(report.to_json(ev, v))
 
     out = Path(args.out)
