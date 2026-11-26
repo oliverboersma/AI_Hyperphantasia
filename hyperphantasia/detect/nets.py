@@ -52,6 +52,10 @@ class NetConfig:
     # slots only: let the encoder attend in both directions (premises and slots see each
     # other). The question side stays causal and still sees the premises only via the slots.
     enc_bidirectional: bool = True
+    # slots only: "free" = K slot tokens after all premises; "anchored" = one slot token right
+    # after each premise slot (K = number of premise slots). Either way the question side sees
+    # the premises only through the slot vectors.
+    slot_layout: str = "free"
 
     @property
     def vocab(self) -> int:
@@ -128,7 +132,8 @@ def init(cfg: NetConfig, seed: int = 0):
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.layers)]
     else:
         if not ids:
-            p["pos_enc"] = jax.random.normal(ks[2], (cfg.prem_len + cfg.k_slots, cfg.d)) * 0.5
+            n_enc = cfg.prem_len + (0 if getattr(cfg, "slot_layout", "free") == "anchored" else cfg.k_slots)
+            p["pos_enc"] = jax.random.normal(ks[2], (n_enc, cfg.d)) * 0.5
         dec = cfg.k_slots + (0 if ids else 4 * (cfg.train_queries if cfg.encoding == "slotted" else 1))
         p["pos_dec"] = jax.random.normal(ks[4], (dec, cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
@@ -146,14 +151,19 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
         bias = _bias(word(tokens) != W.PAD)
     else:
         prem, query = tokens[:, :cfg.prem_len], tokens[:, cfg.prem_len:]
-        slot_ids = jnp.broadcast_to(jnp.arange(W.BASE_VOCAB, cfg.vocab), (tokens.shape[0], cfg.k_slots))
-        slot_emb = params["tok"][slot_ids] + (params["role"][N_ROLES - 1] if ids else 0.0)
-        e = jnp.concatenate([embed(prem), slot_emb], axis=1) + (0.0 if ids else params["pos_enc"][None])
-        keys = jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1)
+        anchored = getattr(cfg, "slot_layout", "free") == "anchored"
+        if anchored:  # slot tokens are already in the premise sequence, one after each premise slot
+            e = embed(prem) + params["pos_enc"][None]
+            keys = word(prem) != W.PAD
+        else:
+            slot_ids = jnp.broadcast_to(jnp.arange(W.BASE_VOCAB, cfg.vocab), (tokens.shape[0], cfg.k_slots))
+            slot_emb = params["tok"][slot_ids] + (params["role"][N_ROLES - 1] if ids else 0.0)
+            e = jnp.concatenate([embed(prem), slot_emb], axis=1) + (0.0 if ids else params["pos_enc"][None])
+            keys = jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1)
         ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
         for bp in params["enc"]:
             e = _block(bp, e, ebias, cfg.heads)
-        slots = e[:, cfg.prem_len:]
+        slots = e[:, jnp.asarray(_anchors(cfg))] if anchored else e[:, cfg.prem_len:]
         if ids:  # slots carry their own position; question tokens carry role tags
             h = jnp.concatenate([slots + params["pos_dec"][None], embed(query)], axis=1)
         else:
@@ -200,10 +210,25 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
     return out
 
 
+def anchored_config(**kw) -> NetConfig:
+    """Phantasm Slots with one slot vector anchored after each of the 6 premise slots."""
+    n = W.MAX_N - 1
+    return NetConfig(kind="slots", slot_layout="anchored", k_slots=n, prem_len=1 + 4 * n, **kw)
+
+
+def _anchors(cfg: NetConfig) -> list[int]:
+    return [4 + 4 * k for k in range(cfg.k_slots)]
+
+
 def _slotted(problems, cfg: NetConfig, premises: bool, queries) -> np.ndarray:
-    """[BOS, 6 premise slots x 3 tokens, then question blocks]; empty slots are PAD (masked)."""
+    """[BOS, 6 premise slots x 3 tokens, then question blocks]; empty slots are PAD (masked).
+
+    With anchored slots each premise slot is followed by its slot token: [a op b SLOT_k].
+    """
     n_slots = W.MAX_N - 1
-    width = (1 + 3 * n_slots if premises else 0) + 4 * len(queries[0])
+    anchored = premises and cfg.kind == "slots" and getattr(cfg, "slot_layout", "free") == "anchored"
+    stride = 4 if anchored else 3
+    width = (1 + stride * n_slots if premises else 0) + 4 * len(queries[0])
     out = np.full((len(problems), width), W.PAD, dtype=np.int32)
     for i, p in enumerate(problems):
         k = 0
@@ -212,8 +237,10 @@ def _slotted(problems, cfg: NetConfig, premises: bool, queries) -> np.ndarray:
             rng = np.random.default_rng(abs(hash(p.premises)) % 2 ** 32)  # deterministic per puzzle
             where = rng.choice(n_slots, size=len(p.premises), replace=False)
             for slot, prem in zip(where, p.premises):
-                out[i, 1 + 3 * slot: 4 + 3 * slot] = prem
-            k = 1 + 3 * n_slots
+                out[i, 1 + stride * slot: 4 + stride * slot] = prem
+            if anchored:
+                out[i, [4 + 4 * k for k in range(n_slots)]] = W.BASE_VOCAB + np.arange(n_slots)
+            k = 1 + stride * n_slots
         for x, y in queries[i]:
             out[i, k:k + 4] = (W.QMARK, x, y, W.ANS)
             k += 4
@@ -396,7 +423,8 @@ def load(path: Path):
         object.__setattr__(cfg, "encoding", "absolute")
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
-    for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False)):
+    for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False),
+                          ("slot_layout", "free")):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
