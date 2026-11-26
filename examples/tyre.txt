@@ -1,0 +1,9 @@
+Process: Change a flat tyre
+Start: car on ground, nuts tight, spare in boot, flat on
+Goal: spare on, nuts tight, car on ground
+1. Jack up the car - needs: car on ground; makes: car raised; ends: car on ground
+2. Loosen the nuts - needs: nuts tight, car on ground; makes: nuts loose; ends: nuts tight
+3. Remove the flat - needs: nuts loose, car raised; makes: hub free; ends: flat on
+4. Fit the spare - needs: hub free, spare in boot; makes: spare on; ends: hub free, spare in boot
+5. Lower the car - needs: car raised, spare on; makes: car on ground; ends: car raised
+6. Tighten the nuts - needs: nuts loose, car on ground, spare on; makes: nuts tight; ends: nuts loose
