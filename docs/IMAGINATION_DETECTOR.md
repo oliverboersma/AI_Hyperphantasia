@@ -181,6 +181,44 @@ behavioural signatures: invariance to reshuffling, and consistency across counte
 prompts. Those can rule imagination out but cannot establish where it lives. That requires the
 internals.
 
+## 10. Testing it on Claude
+
+The assistant that built this repository was asked to test itself: does it visualise when it
+reasons? Only part of the battery can be run on it here, because a chat session has no access to
+its own activations.
+
+**Behaviour (criterion 1).** `experiments/self_test/self_test.py make` generates 34 puzzles with
+the answers hidden. Claude answered them in its own reasoning, with no code
+(`experiments/self_test/claude_answers.txt`), and the script scored them:
+
+| | Claude | surface heuristic |
+|---|---|---|
+| questions needing composition | 8/8 | about 57% |
+| stated pairs | 8/8 | 100% |
+| 7-letter worlds | 6/6 | about 85% |
+| same answer after reshuffling | 8/8 | about 94% |
+
+Thirty-four items is a small sample. Even so, it rules out the surface-statistics explanation.
+It does not establish imagery: people with aphantasia also solve such puzzles, using verbal or
+abstract-spatial strategies, and the surface heuristic shows how a strong-looking score can come
+from something else.
+
+**Introspection.** Claude reported that its reasoning on every puzzle took the same form. It
+rewrote each `>` premise as `<`, joined the premises into a single line by attaching pieces at
+the ends, wrote that line out (`E < L < Y < P < D`), and read the answer off the positions. It
+built the whole line before considering the question, which looks like a "standing scene" in its
+reasoning trace. It did not report anything it could identify as a picture. Its working
+representation was a line of symbols, closer to the aphantasic strategy than to seeing an image.
+
+**Why the self-report does not settle it.** The report is produced by the same system it
+describes, and nothing checks it against the mechanism. Anthropic's interpretability research on
+introspection, which injects known concepts into a model's activations and asks whether it
+notices, has found that Claude models sometimes detect such internal states but unreliably, and
+miss them more often than not. A report of "no pictures" is therefore weak evidence in either
+direction, much as a probe without an intervention is. The question can only be settled the way
+this detector settles it for the small networks: probes and transplants on Claude's own
+activations. That requires interpretability access that a chat session does not have.
+
 ## References
 
 * Belinkov, Y. (2022). Probing classifiers: Promises, shortcomings, and advances. *Computational Linguistics*, 48(1).
