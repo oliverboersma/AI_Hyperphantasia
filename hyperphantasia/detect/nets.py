@@ -38,10 +38,12 @@ class NetConfig:
     k_slots: int = 8         # slots only
     seq_len: int = 1 + W.MAX_PREMISE_TOKENS + 4
     prem_len: int = 1 + W.MAX_PREMISE_TOKENS
-    # "ids": each premise's three tokens share a premise id drawn at random per puzzle, plus a
-    # role tag (left letter, sign, right letter). Grouping is free and no position is special,
-    # so position-bound shortcuts are impossible. "absolute": learned absolute positions.
-    encoding: str = "ids"
+    # "slotted" (default): learned absolute positions over a fixed grid of premise slots; each
+    #   premise sits in a randomly chosen slot and empty slots are masked, so no slot is special
+    #   and position-bound shortcuts cannot work, while a premise's own tokens stay adjacent.
+    # "absolute": premises packed against the question (a positional shortcut is available).
+    # "ids": random per-puzzle premise ids plus role tags, no positions (learned too slowly here).
+    encoding: str = "slotted"
     # Training only ever supervises answers. Each training sequence asks ``train_queries``
     # questions about the same premises (more answer bits per pass); evaluation asks one,
     # and causal attention means later questions cannot affect the first answer.
@@ -113,12 +115,14 @@ def init(cfg: NetConfig, seed: int = 0):
         p["pid"] = jax.random.normal(ks[7], (N_PIDS, cfg.d)) * 0.5
     if cfg.kind == "plain":
         if not ids:
-            p["pos"] = jax.random.normal(ks[2], (cfg.seq_len, cfg.d)) * 0.5
+            extra = 4 * (cfg.train_queries - 1) if cfg.encoding == "slotted" else 0
+            p["pos"] = jax.random.normal(ks[2], (cfg.seq_len + extra, cfg.d)) * 0.5
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.layers)]
     else:
         if not ids:
             p["pos_enc"] = jax.random.normal(ks[2], (cfg.prem_len + cfg.k_slots, cfg.d)) * 0.5
-        p["pos_dec"] = jax.random.normal(ks[4], (cfg.k_slots + (0 if ids else 4), cfg.d)) * 0.5
+        dec = cfg.k_slots + (0 if ids else 4 * (cfg.train_queries if cfg.encoding == "slotted" else 1))
+        p["pos_dec"] = jax.random.normal(ks[4], (dec, cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
     return p
@@ -130,7 +134,7 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
         if ids else (lambda t: params["tok"][t])
     word = (lambda t: t[..., 0]) if ids else (lambda t: t)
     if cfg.kind == "plain":
-        h = embed(tokens) + (0.0 if ids else params["pos"][None])
+        h = embed(tokens) + (0.0 if ids else params["pos"][None, :tokens.shape[1]])
         bias = _bias(word(tokens) != W.PAD)
     else:
         prem, query = tokens[:, :cfg.prem_len], tokens[:, cfg.prem_len:]
@@ -144,7 +148,8 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
         if ids:  # slots carry their own position; question tokens carry role tags
             h = jnp.concatenate([slots + params["pos_dec"][None], embed(query)], axis=1)
         else:
-            h = jnp.concatenate([slots, embed(query)], axis=1) + params["pos_dec"][None]
+            h = jnp.concatenate([slots, embed(query)], axis=1)
+            h = h + params["pos_dec"][None, :h.shape[1]]
         bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
     if patch_layer == 0:
         h = _patch(h, patch_pos, patch_vals, proj)
@@ -186,6 +191,26 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
     return out
 
 
+def _slotted(problems, cfg: NetConfig, premises: bool, queries) -> np.ndarray:
+    """[BOS, 6 premise slots x 3 tokens, then question blocks]; empty slots are PAD (masked)."""
+    n_slots = W.MAX_N - 1
+    width = (1 + 3 * n_slots if premises else 0) + 4 * len(queries[0])
+    out = np.full((len(problems), width), W.PAD, dtype=np.int32)
+    for i, p in enumerate(problems):
+        k = 0
+        if premises:
+            out[i, 0] = W.BOS
+            rng = np.random.default_rng(abs(hash(p.premises)) % 2 ** 32)  # deterministic per puzzle
+            where = rng.choice(n_slots, size=len(p.premises), replace=False)
+            for slot, prem in zip(where, p.premises):
+                out[i, 1 + 3 * slot: 4 + 3 * slot] = prem
+            k = 1 + 3 * n_slots
+        for x, y in queries[i]:
+            out[i, k:k + 4] = (W.QMARK, x, y, W.ANS)
+            k += 4
+    return out
+
+
 def encode_train(cfg: NetConfig, problems, rng):
     """Training sequences with several questions; returns (tokens, labels, mask) per position."""
     q = cfg.train_queries
@@ -193,6 +218,23 @@ def encode_train(cfg: NetConfig, problems, rng):
     for p in problems:
         pairs = [tuple(int(v) for v in rng.choice(p.order, size=2, replace=False)) for _ in range(q - 1)]
         extra.append(pairs)
+    if cfg.encoding == "slotted":
+        qs = [[p.query] + e for p, e in zip(problems, extra)]
+        if cfg.kind == "plain":
+            toks, offset = _slotted(problems, cfg, True, qs), 0
+        else:
+            toks = np.concatenate([_slotted(problems, cfg, True, [[] for _ in problems]),
+                                   _slotted(problems, cfg, False, qs)], axis=1)
+            offset = cfg.prem_len - cfg.k_slots
+        L = toks.shape[1] - offset
+        y = np.zeros((len(problems), L), dtype=np.int32)
+        mask = np.zeros((len(problems), L), dtype=np.float32)
+        start = L - 4 * q
+        for i, p in enumerate(problems):
+            r = p.rank
+            for j, (a, b) in enumerate(qs[i]):
+                y[i, start + 4 * j + 3], mask[i, start + 4 * j + 3] = int(r[a] < r[b]), 1.0
+        return toks, y, mask
     if cfg.kind == "plain":  # no positions are used, so the shortest padding will do
         toks = _ids(problems, 1 + 3 * (cfg.max_train_n - 1) + 4 * q, True, True, extra)
         offset = 0
@@ -213,6 +255,12 @@ def encode_train(cfg: NetConfig, problems, rng):
 
 
 def encode(cfg: NetConfig, problems) -> np.ndarray:
+    if cfg.encoding == "slotted":
+        qs = [[p.query] for p in problems]
+        if cfg.kind == "plain":
+            return _slotted(problems, cfg, True, qs)
+        return np.concatenate([_slotted(problems, cfg, True, [[] for _ in problems]),
+                               _slotted(problems, cfg, False, qs)], axis=1)
     if getattr(cfg, "encoding", "absolute") == "ids":
         if cfg.kind == "plain":
             return _ids(problems, cfg.seq_len, True, True)
@@ -298,7 +346,7 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
         max_n = min(top, 3 + int((top - 2) * s / (0.6 * steps))) if curriculum else top
         probs = W.batch(rng, batch, ns=tuple(range(2, max_n + 1)))
         cur_lr = lr * min(1.0, s / 200) * (0.5 * (1 + math.cos(math.pi * s / steps)) * 0.9 + 0.1)
-        toks, y, mask = encode_train(cfg, probs, rng) if cfg.encoding == "ids" else \
+        toks, y, mask = encode_train(cfg, probs, rng) if cfg.encoding in ("ids", "slotted") else \
             (encode(cfg, probs), None, None)
         if y is None:  # older absolute-position networks: one question per sequence
             y = np.zeros(toks.shape[:2], dtype=np.int32); y[:, -1] = W.labels(probs)
@@ -338,4 +386,7 @@ def load(path: Path):
         object.__setattr__(cfg, "encoding", "absolute")
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
+    for name, default in (("train_queries", 1), ("max_train_n", 6)):
+        if name not in cfg.__dict__:
+            object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
