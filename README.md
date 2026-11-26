@@ -179,6 +179,10 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   letter, it assembles a code for that letter's place relative to the others and answers from it.
   That code is causally used but is neither a coordinate nor a clean list, so the verdict is
   "something else".
+* **Across three training runs**, no network builds a standing scene, and a single rotation lets
+  one run's on-demand code stand in for another's (91% transfer between seeds 0 and 1, against
+  88% for the recipient's own state), in the spirit of Hazy Research's "Plato's Key". How well
+  each run composes premises varies (73–90%).
 * **The Phantasm Slots networks**, which force a standing scene through a bottleneck, did not learn
   the task: the anchored layout stayed at chance for the full 8000 steps that took the plain
   network to 99.5%. That's a hint, not a result.

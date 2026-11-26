@@ -193,6 +193,53 @@ reshuffling 98% of the time. Inside:
     an uninvolved letter's (18% vs 17%).
   * **Only partly readable.** The relation is 78% decodable there, below a surface baseline (96%).
 
+**Three seeds.** Two more plain transformers were trained from different random starts (seeds 1
+and 2; reports in `results/seed1/` and `results/seed2/`). They reach 96% on held-out worlds, but
+only 83% and 73% on questions that need composition. That is below the 90% bar, so the fixed rule
+calls them "no imagination", while seed 0 cleared it at 90.5%.
+
+| | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| Composition questions | 90.5% | 83% | 73% |
+| Transplant before the question (any layer; baseline in brackets) | 1% (1%) | 7–8% (8%) | 9–17% (9%) |
+| Transplant x's whole site, only x moved (best layer) | 81% | 87% | 59% |
+| Transplant only the rank-probe directions (random in brackets) | 2% (3%) | 83% (12%) | 19% (19%) |
+
+The baseline is the share of answers that already match the transplanted world's answer because
+the network got that puzzle wrong.
+
+* **Robust: no seed builds a standing scene.** In every seed, transplanting anything before the
+  question barely moves the answer beyond that seed's baseline. Each one decides at the
+  asked-about letters.
+* **Not robust: the form of the on-demand code.** In seed 1, a few rank-probe directions at x's site
+  are causally decisive (83% against 12% for random ones). The rank they encode is no more readable
+  than surface counts (59%), though, so seed 1 probably relies on "how close is x to an end"
+  information, which fits its weaker composition score.
+
+**Plato's Key across seeds** (exploratory, `experiments/detector_followups/rotation_transfer.py`,
+adapted from Hazy Research's 2026 "Plato's Key"). For each pair of seeds, a rotation plus one
+global scale was fitted in closed form on x-site activations from 3000 shared puzzles. The
+donor's state from a world where only x moved was mapped into the recipient and swapped in. Layers
+were chosen on a validation split and scored on a test split.
+
+| Donor → recipient | Rotated donor code | Recipient's own code | Random rotation | Mismatched fit |
+|---|---|---|---|---|
+| 0 → 1 | **91%** | 88% | 47% | 33% |
+| 1 → 0 | **79%** | 80% | 15% | 56% |
+| 0 → 2 | **74%** | 57% | 25% | 30% |
+| 1 → 2 | **72%** | 57% | 55% | 37% |
+| 2 → 0 | 48% | 80% | 21% | 22% |
+| 2 → 1 | 67% | 88% | 34% | 45% |
+
+* **The codes are largely interchangeable.** Between seeds 0 and 1, the rotated code works about as
+  well as the recipient's own state.
+* **Rotations chain.** A→B→C without running B keeps 98–102% of the direct A→C effect in all six
+  chains.
+* **A better donor can help a weaker recipient.** Seed 0's rotated code moves seed 2 more reliably
+  than seed 2's own state does, echoing the paper's "dark memories".
+* **Read against the controls, not against zero.** Answers are yes/no, so a patch that merely
+  scrambles the network can still look like up to about 50% transfer.
+
 **The Phantasm Slots networks** have their premise information reach the output (gradients flow,
 and changing only the premises changes the output), but about 2.6 times more weakly than in the
 plain network at the start of training. Under the same curriculum, neither layout left chance
@@ -207,6 +254,13 @@ When the question names x, the network assembles at x's position a distributed c
 stands relative to the other letters, and computes the answer from it. That code is causally used
 and partly structured, but it is not a coordinate, not a per-letter list, and not linearly
 decodable well enough to pass the detector's fixed bar. So the verdict stays "something else".
+
+**Across training runs the on-demand code is shared.** Three independently trained networks
+all decide at the asked-about letters, none forms a standing scene, and a single rotation lets
+one network use another's on-demand code, with chains of rotations composing. That is functional
+evidence, in miniature, for the Platonic Representation Hypothesis: what each run invents is
+largely a rotated version of the same thing. How well that code supports composition varies from
+run to run (73–90%).
 
 **The architecture arm is unresolved.** Both designs that force a standing scene through a
 bottleneck failed to learn the task under the same budget that taught the plain network. With one
@@ -231,7 +285,8 @@ a large model, the other is a measurement of a tiny one.
 * **One position per site.** A scene spread across many positions would be missed by single-site
   transplants. That is why the scene site is tested at the end of the premises, the only position
   in a causal model that has seen all of them, and why X and Y are tested too.
-* **A toy world.** One kind of state (a linear order), small networks, one seed. The instrument
+* **A toy world.** One kind of state (a linear order), small networks, three seeds for the plain
+  transformer and one for each slots layout. The instrument
   scales; these particular findings may not.
 * **Training budget.** Small CPU-trained networks may solve the task differently than large models
   would, or not at all on longer worlds.

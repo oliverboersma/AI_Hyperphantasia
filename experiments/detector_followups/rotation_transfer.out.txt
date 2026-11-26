@@ -1,0 +1,17 @@
+networks: [0, 1, 2]   (x's site; transfer = answer follows the moved x)
+
+pair     layers    rotation  self-swap   kept  random rot  mismatched
+0->1     2,3           0.91       0.88   104%        0.47        0.33
+0->2     2,2           0.74       0.57   130%        0.25        0.30
+1->0     3,2           0.79       0.80    98%        0.15        0.56
+1->2     4,2           0.72       0.57   125%        0.55        0.37
+2->0     4,2           0.48       0.80    60%        0.21        0.22
+2->1     4,3           0.67       0.88    77%        0.34        0.45
+
+Chaining at layer 2 everywhere (A -> B -> C without running B, against A -> C direct):
+  0->1->2: chain 0.73   direct 0->2: 0.74   kept 99%
+  0->2->1: chain 0.87   direct 0->1: 0.87   kept 100%
+  1->0->2: chain 0.66   direct 1->2: 0.68   kept 98%
+  1->2->0: chain 0.75   direct 1->0: 0.77   kept 98%
+  2->0->1: chain 0.51   direct 2->1: 0.51   kept 99%
+  2->1->0: chain 0.35   direct 2->0: 0.34   kept 102%
