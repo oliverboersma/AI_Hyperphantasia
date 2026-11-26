@@ -57,6 +57,9 @@ class NetConfig:
     # the premises only through the slot vectors.
     slot_layout: str = "free"
     slot_iters: int = 3      # slots with slot_layout="attention": rounds of competition
+    # slot_layout="attention" only: also write each token's raw letter embedding into the slots,
+    # so the question's letter and the slot contents start out in the same space.
+    slot_raw_values: bool = False
 
     @property
     def vocab(self) -> int:
@@ -163,7 +166,8 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
             ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
             for bp in params["enc"]:
                 e = _block(bp, e, ebias, cfg.heads)
-            slots = _slot_attention(params["sa"], e, keys, params["slots0"], cfg.slot_iters)
+            raw = params["tok"][word(prem)] if getattr(cfg, "slot_raw_values", False) else None
+            slots = _slot_attention(params["sa"], e, keys, params["slots0"], cfg.slot_iters, raw)
         elif anchored:  # slot tokens are already in the premise sequence, one after each premise slot
             e = embed(prem) + params["pos_enc"][None]
             keys = word(prem) != W.PAD
@@ -234,7 +238,7 @@ def _slot_attention_params(key, d):
             "b2": jnp.zeros(d)}
 
 
-def _slot_attention(p, inputs, mask, slots0, iters):
+def _slot_attention(p, inputs, mask, slots0, iters, raw=None):
     """Slot Attention (Locatello et al., 2020) with learned initial slots.
 
     Each input token's attention is normalised over the slots, so slots compete to explain
@@ -243,6 +247,8 @@ def _slot_attention(p, inputs, mask, slots0, iters):
     d = inputs.shape[-1]
     x = _ln(inputs, p["ln_in"])
     k, v = x @ p["wk"], x @ p["wv"]
+    if raw is not None:
+        v = v + raw
     slots = jnp.broadcast_to(slots0, (inputs.shape[0],) + slots0.shape)
     m = mask.astype(inputs.dtype)[..., None]                       # [B, N, 1]
     g = p["gru"]
@@ -262,9 +268,10 @@ def _slot_attention(p, inputs, mask, slots0, iters):
     return slots
 
 
-def slot_attention_config(**kw) -> NetConfig:
+def slot_attention_config(raw_values: bool = False, **kw) -> NetConfig:
     """Phantasm Slots whose slots compete for premise tokens (Slot Attention)."""
-    return NetConfig(kind="slots", slot_layout="attention", k_slots=W.MAX_N - 1, **kw)
+    return NetConfig(kind="slots", slot_layout="attention", k_slots=W.MAX_N - 1,
+                     slot_raw_values=raw_values, **kw)
 
 
 def anchored_config(**kw) -> NetConfig:
@@ -481,7 +488,7 @@ def load(path: Path):
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
     for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False),
-                          ("slot_layout", "free"), ("slot_iters", 3)):
+                          ("slot_layout", "free"), ("slot_iters", 3), ("slot_raw_values", False)):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
