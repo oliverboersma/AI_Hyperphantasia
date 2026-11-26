@@ -183,9 +183,11 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   one run's on-demand code stand in for another's (91% transfer between seeds 0 and 1, against
   88% for the recipient's own state), in the spirit of Hazy Research's "Plato's Key". How well
   each run composes premises varies (73–90%).
-* **The Phantasm Slots networks**, which force a standing scene through a bottleneck, did not learn
-  the task: the anchored layout stayed at chance for 8000 steps, and again for 20,000, where the
-  plain network needed 8000 to reach 99.5%. That's a hint, not a result.
+* **The Phantasm Slots networks**, which force a standing scene through a bottleneck, never learned
+  the task in any of four slot designs, including Slot Attention, even at 20,000 steps. The same
+  encoder and decoder *without* the bottleneck learned at the plain network's pace. So building a
+  scene before the question is what training fails to find here, while composing when asked is
+  found quickly. This is a small-scale finding.
 
 ## Layout
 

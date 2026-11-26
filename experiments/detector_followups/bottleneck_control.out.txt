@@ -1,0 +1,8 @@
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 250 loss 0.693
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 500 loss 0.693
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 750 loss 0.695
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 1000 loss 0.693
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 1250 loss 0.693
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 1500 loss 0.677
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 1750 loss 0.321
+   encoder-decoder, no bottleneck, 2-3 letter worlds: step 2000 loss 0.213

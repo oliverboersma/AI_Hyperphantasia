@@ -154,8 +154,10 @@ The subjects:
   Any imagination it has is an invention of its mechanism.
 * **Phantasm Slots transformer**: a 3-layer encoder (attending in both directions) writes the
   premises into slot vectors, and a 4-layer decoder answers the question while able to see *only*
-  the slots. Two layouts were tried: 8 free slot vectors after the premises, and 6 slot vectors
-  each anchored right after one premise slot. The architecture forces any scene through the
+  the slots. Four ways of filling the slots were tried: 8 free slot vectors after the premises;
+  6 slot vectors each anchored right after one premise slot; 6 learned slots that compete for
+  premise tokens (Slot Attention; Locatello et al., 2020); and Slot Attention that also writes each
+  premise letter's raw embedding into the slots. The architecture forces any scene through the
   bottleneck.
 
 ## 6. Results
@@ -169,7 +171,7 @@ before any network was examined.
 | Surface heuristic (known negative) | 0.50 | **no imagination** ✓ |
 | Plain transformer, packed premises | 0.58 | **no imagination** (positional shortcut) |
 | Plain transformer, slotted premises | 0.905 | **something else** |
-| Phantasm Slots, free and anchored layouts | not learned | not examined: chance level after 3000 steps (free), and after 8000 and then 20,000 steps (anchored) |
+| Phantasm Slots, four slot designs | not learned | not examined: all at chance (see below) |
 
 **The working plain transformer** gets 98.9% of 5-letter questions right overall, 99.6% on stated
 pairs, and 86% on 7-letter worlds it never saw in training. Its answers are the same under
@@ -240,12 +242,24 @@ were chosen on a validation split and scored on a test split.
 * **Read against the controls, not against zero.** Answers are yes/no, so a patch that merely
   scrambles the network can still look like up to about 50% transfer.
 
-**The Phantasm Slots networks** have their premise information reach the output (gradients flow,
-and changing only the premises changes the output), but about 2.6 times more weakly than in the
-plain network at the start of training. Under the same curriculum, neither layout left chance
-level. The free layout was stopped at 3000 steps. The anchored layout ran the full 8000 steps that
-took the plain network to 99.5%, and then a separate 20,000-step run, with loss at 0.693 (chance)
-throughout.
+**The Phantasm Slots networks never learned the task, in any of the four slot designs.**
+
+| Slot design | Steps trained | Result |
+|---|---|---|
+| 8 free slots after the premises | 3000 | chance |
+| 6 slots anchored after the premise slots | 8000, then a separate 20,000 | chance |
+| Slot Attention (6 competing slots) | 3000 | chance |
+| Slot Attention plus raw letter embeddings | 3000 | chance |
+
+This is not a disconnection. Gradients reach the encoder, and changing only the premises changes
+the output: by 0.32 at initialisation with Slot Attention, more than the plain network's 0.26.
+
+**Control** (`experiments/detector_followups/bottleneck_control.py`). The same encoder and decoder,
+but the decoder may attend to *every* encoder position instead of a few slot vectors. On the same
+2–3 letter worlds it breaks through at about the same point as the plain transformer: loss 0.693
+until step 1250, 0.677 at 1500, 0.32 at 1750 and 0.21 at 2000. The machinery works. What blocks
+learning is the bottleneck itself: having to compress the premises into a few vectors before the
+question is known.
 
 ## 7. What it means
 
@@ -263,11 +277,14 @@ evidence, in miniature, for the Platonic Representation Hypothesis: what each ru
 largely a rotated version of the same thing. How well that code supports composition varies from
 run to run (73–90%).
 
-**The architecture arm is unresolved.** Both designs that force a standing scene through a
-bottleneck failed to learn the task under the same budget that taught the plain network. With one
-seed and a small CPU budget, that is a hint rather than a result. On this task, a standing scene
-seems much harder for gradient descent to discover than on-demand composition. Longer training,
-more seeds, or a GPU are the obvious next steps.
+**The architecture arm points the same way.** Four designs that force a standing scene through a
+slot bottleneck could not learn the task. The same encoder and decoder without the bottleneck
+learned it at the plain transformer's pace. So, on this task and budget, it is specifically
+"build the scene before the question" that gradient descent fails to discover, while "compose when
+asked" is found within about 1500 steps. That fits what all three plain transformers chose on
+their own. It is still a small-scale finding: CPU training, one seed per design, a few thousand
+steps. A design that makes a standing scene easier to learn, or a much larger budget, could
+change it.
 
 **What the instrument showed it can do.** It correctly separated a real scene, a surface cheat
 whose "scene" was only a copy of the premises, and a network that had learned a positional
