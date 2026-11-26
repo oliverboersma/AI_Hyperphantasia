@@ -169,7 +169,7 @@ before any network was examined.
 | Surface heuristic (known negative) | 0.50 | **no imagination** ✓ |
 | Plain transformer, packed premises | 0.58 | **no imagination** (positional shortcut) |
 | Plain transformer, slotted premises | 0.905 | **something else** |
-| Phantasm Slots, free and anchored layouts | not learned | not examined: both stayed at chance through 3000 training steps |
+| Phantasm Slots, free and anchored layouts | not learned | not examined: chance level after 3000 steps (free) and the full 8000 (anchored) |
 
 **The working plain transformer** gets 98.9% of 5-letter questions right overall, 99.6% on stated
 pairs, and 86% on 7-letter worlds it never saw in training. Its answers are the same under
@@ -195,8 +195,9 @@ reshuffling 98% of the time. Inside:
 
 **The Phantasm Slots networks** have their premise information reach the output (gradients flow,
 and changing only the premises changes the output), but about 2.6 times more weakly than in the
-plain network at the start of training. Under the same budget and curriculum, neither layout left
-chance level.
+plain network at the start of training. Under the same curriculum, neither layout left chance
+level: the free layout was stopped at 3000 steps, and the anchored layout ran the full 8000 steps
+that took the plain network to 99.5%.
 
 ## 7. What it means
 

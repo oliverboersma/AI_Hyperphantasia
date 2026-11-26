@@ -180,7 +180,8 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   That code is causally used but is neither a coordinate nor a clean list, so the verdict is
   "something else".
 * **The Phantasm Slots networks**, which force a standing scene through a bottleneck, did not learn
-  the task in the same budget. That's a hint, not a result.
+  the task: the anchored layout stayed at chance for the full 8000 steps that took the plain
+  network to 99.5%. That's a hint, not a result.
 
 ## Layout
 
