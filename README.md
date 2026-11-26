@@ -147,6 +147,32 @@ python -m pytest
 
 This runs 26 tests and needs no network.
 
+## Does imagination exist in the architecture, the mechanism, or neither?
+
+[docs/IMAGINATION_DETECTOR.md](docs/IMAGINATION_DETECTOR.md) describes an instrument that answers
+this for a neural network. It trains small transformers on hidden-order puzzles, using only the
+yes/no answers, then asks three questions:
+
+* **Behaviour:** can the network answer questions that need premises combined?
+* **Representation:** can each item's position be read out of its activations, beyond what an
+  untrained copy or surface counts give?
+* **Causation:** if activations are transplanted from a world with the opposite answer, either
+  whole or only the decoded "position" directions, does the answer follow?
+
+The detector is calibrated first on a hand-built scene engine (it must say *imagination*) and a
+surface-heuristic cheater (it must say *no*).
+
+```bash
+pip install -e ".[detect]"
+```
+
+```bash
+python -m hyperphantasia.detect
+```
+
+This writes `results/imagination_report.md`. The verdicts for the trained networks are reported in
+the detector document once a full run has completed.
+
 ## Layout
 
 ```
@@ -163,7 +189,8 @@ hyperphantasia/
   loop.py           the Phantasia Loop
   schema.py         validation between perception and the scene
   backends/         offline restricted-English parser; Claude backend
-docs/               architecture and portable protocol
+  detect/           imagination detector: test worlds, subjects, nets (JAX), probes, battery, verdict
+docs/               architecture, portable protocol, imagination detector
 examples/           tyre procedure, benchmark
 tests/
 ```

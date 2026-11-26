@@ -485,7 +485,9 @@ natural reasoning data, where natural data gets only LM, consistency and dynamic
 **How to tell the imagination is actually used.** Probe the slots for linearly decodable world
 state, then **intervene**: edit a slot (move the "fork" left) and check that the answer changes
 accordingly. If editing the imagination does not change the reasoning, the model is not
-reasoning with it.
+reasoning with it. [IMAGINATION_DETECTOR.md](IMAGINATION_DETECTOR.md) builds this test, calibrates
+it on subjects with known internals, and applies it to a plain transformer and to a small
+Phantasm Slots network.
 
 **Why it matters for alignment.** At any moment the slots can be decoded into pictures, graphs
 and timelines. "Show me what you're imagining" becomes a real interpretability interface, and
