@@ -121,43 +121,106 @@ The command refuses to examine any network until both hand-built subjects pass:
 | **Surface heuristic** | Looks up stated pairs; otherwise compares how often each letter is on the "smaller" side; ties go to mention order | **no imagination** ✓ |
 
 The surface heuristic is a useful trap. Its scene site is a lossless copy of the premises, so
-transplanting that site *does* move its answers (94%). A detector that relied on transplants
+transplanting that site *does* move its answers (95%). A detector that relied on transplants
 alone would call it imaginative. The ranks, though, cannot be decoded there beyond what surface
-counts give, and its behaviour on composition is near chance (57%). The verdict correctly says
+counts give, and its behaviour on composition is at chance (50%). The verdict correctly says
 no.
 
 ## 5. Subjects
 
-Both networks are trained **only on the yes/no answer**. Nothing about the scene is supervised.
-Every training batch mixes worlds of two to six letters.
+Every network is trained **only on yes/no answers**. Nothing about the hidden order is ever
+supervised. To get more answer signal per pass, each training sequence asks four questions about
+the same premises. Evaluation asks one, and because attention only looks backwards, later
+questions cannot affect the first answer.
 
-**Input encoding.** Each premise's three tokens share a premise ID, drawn at random for every
-puzzle, and carry a role tag (left letter, sign, right letter). Absolute positions are not used.
-This makes grouping tokens into premises free and makes position-bound shortcuts impossible. It
-tells the network nothing about the hidden order. It was needed because of what happened with
-absolute positions:
+**Input layout.** There is a fixed grid of six premise slots with learned absolute positions.
+Each premise goes into a randomly chosen slot, and unused slots are masked out. A premise's own
+three tokens stay adjacent, which makes them easy to group, but no slot is special. Training
+starts with small worlds (two or three letters) and grows to five. Getting here took several
+failed attempts, which are instructive:
 
-* Starting with tiny worlds and growing them, the plain transformer learned to answer by looking
-  at fixed positions just before the question. It was perfect on 2–3 letter worlds, but on
-  5-letter worlds it answered only 65% of questions about pairs that were stated outright, so it
-  wasn't failing at composition at all. That run is examined as an extra subject.
-* Mixing all world sizes from the start, it made no progress at all in 2000 steps.
+* **Premises packed against the question**, with the same curriculum. The plain transformer learned
+  to read fixed positions just before the question. It was perfect on 2–3 letter worlds, but on
+  5-letter worlds it answered only 65% of questions about pairs that were stated outright. This
+  network is examined as an extra subject.
+* **Packed premises, all sizes mixed from the start.** No progress in 2000 steps.
+* **No positions, but random shared premise IDs and role tags.** Even two-letter worlds were not
+  learned in a short run, where absolute positions learned them in 300 steps: grouping a premise's
+  tokens by ID match is itself hard to discover.
+
+The subjects:
 
 * **Plain transformer**: 4 layers, width 64, 4 heads, causal attention over the whole sequence.
   Any imagination it has is an invention of its mechanism.
-* **Phantasm Slots transformer**: a 3-layer encoder writes the premises into 8 slot vectors, and
-  a 4-layer decoder answers the question while able to see *only* the slots. The architecture
-  forces everything through a bottleneck, so transplanting the slots must move the answer if the
-  network works at all. The open question is whether what flows through the slots is a scene or
-  some other code.
+* **Phantasm Slots transformer**: a 3-layer encoder (attending in both directions) writes the
+  premises into slot vectors, and a 4-layer decoder answers the question while able to see *only*
+  the slots. Two layouts were tried: 8 free slot vectors after the premises, and 6 slot vectors
+  each anchored right after one premise slot. The architecture forces any scene through the
+  bottleneck.
 
 ## 6. Results
 
-*Filled in from `results/imagination_report.md` after a run; see section 7.*
+One seed, trained on CPU. Full tables are in `results/imagination_report.md`. Calibration passed
+before any network was examined.
+
+| Subject | Composition questions | Verdict |
+|---|---|---|
+| Scene engine (known positive) | 1.00 | **standing scene** ✓ |
+| Surface heuristic (known negative) | 0.50 | **no imagination** ✓ |
+| Plain transformer, packed premises | 0.58 | **no imagination** (positional shortcut) |
+| Plain transformer, slotted premises | 0.905 | **something else** |
+| Phantasm Slots, free and anchored layouts | not learned | not examined: both stayed at chance through 3000 training steps |
+
+**The working plain transformer** gets 98.9% of 5-letter questions right overall, 99.6% on stated
+pairs, and 86% on 7-letter worlds it never saw in training. Its answers are the same under
+reshuffling 98% of the time. Inside:
+
+* **No standing scene.** At the site after the premises and before the question, transplanting
+  activations from a world with the opposite answer never moves the answer (1% at every layer).
+  The rank probe there (0.37–0.41) reads less than surface counts do (0.60).
+* **Built on demand, at the asked-about letters.** At layer 2, transplanting x's site moves the
+  answer 42% of the time, and y's site 61%. When only x moves (y keeps its place), transplanting
+  x's site moves the answer 81% of the time. By layer 3 the answer sits at the answer position
+  (99%).
+* **Not a coordinate.** x's rank is only partly readable at its site (0.69, against 0.59 from surface
+  counts and 0.20 from an untrained copy). Transplanting just the rank directions does nothing
+  (2%, the same as random directions).
+* **Exploratory follow-up** (post hoc, `experiments/detector_followups/`):
+  * **Location of the code.** Most of what matters at x's site lies in the space read by "is letter
+    L left of x?" probes. Transplanting those 26 directions moves the answer 78% of the time,
+    against 38% for a random space of the same size.
+  * **Not one switch per letter.** Editing the direction for y alone works no better than editing
+    an uninvolved letter's (18% vs 17%).
+  * **Only partly readable.** The relation is 78% decodable there, below a surface baseline (96%).
+
+**The Phantasm Slots networks** have their premise information reach the output (gradients flow,
+and changing only the premises changes the output), but about 2.6 times more weakly than in the
+plain network at the start of training. Under the same budget and curriculum, neither layout left
+chance level.
 
 ## 7. What it means
 
-*See section 6.*
+**In the learned mechanism, there is no standing mental model of the scene.** Training did not
+produce a picture of the line held ready for any question. It produced *on-demand composition*.
+When the question names x, the network assembles at x's position a distributed code for where x
+stands relative to the other letters, and computes the answer from it. That code is causally used
+and partly structured, but it is not a coordinate, not a per-letter list, and not linearly
+decodable well enough to pass the detector's fixed bar. So the verdict stays "something else".
+
+**The architecture arm is unresolved.** Both designs that force a standing scene through a
+bottleneck failed to learn the task under the same budget that taught the plain network. With one
+seed and a small CPU budget, that is a hint rather than a result. On this task, a standing scene
+seems much harder for gradient descent to discover than on-demand composition. Longer training,
+more seeds, or a GPU are the obvious next steps.
+
+**What the instrument showed it can do.** It correctly separated a real scene, a surface cheat
+whose "scene" was only a copy of the premises, and a network that had learned a positional
+shortcut. It located where and when a working network makes its decision.
+
+**Against the introspective self-test (section 10).** Claude reported building the whole line
+before reading the question, which would be a standing scene. The small plain transformer does the
+opposite. Neither observation says anything about the other: one is an unverified self-report from
+a large model, the other is a measurement of a tiny one.
 
 ## 8. Limits
 
@@ -205,10 +268,10 @@ the answers hidden. Claude answered them in its own reasoning, with no code
 
 | | Claude | surface heuristic |
 |---|---|---|
-| questions needing composition | 8/8 | about 57% |
+| questions needing composition | 8/8 | 50% |
 | stated pairs | 8/8 | 100% |
-| 7-letter worlds | 6/6 | about 85% |
-| same answer after reshuffling | 8/8 | about 94% |
+| 7-letter worlds | 6/6 | 85% |
+| same answer after reshuffling | 8/8 | 94% |
 
 Thirty-four items is a small sample. Even so, it rules out the surface-statistics explanation.
 It does not establish imagery: people with aphantasia also solve such puzzles, using verbal or

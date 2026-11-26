@@ -5,7 +5,7 @@
 
 Covers criterion 1 of the detector (docs/IMAGINATION_DETECTOR.md): questions that need premises
 composed, invariance to reshuffling, and longer worlds. It can rule imagination out (a surface
-heuristic scores about 57% on composition) but cannot show where imagination lives; that needs
+heuristic scores about 50% on composition) but cannot show where imagination lives; that needs
 access to the subject's internals.
 """
 

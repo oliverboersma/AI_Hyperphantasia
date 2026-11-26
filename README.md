@@ -170,8 +170,17 @@ pip install -e ".[detect]"
 python -m hyperphantasia.detect
 ```
 
-This writes `results/imagination_report.md`. The verdicts for the trained networks are reported in
-the detector document once a full run has completed.
+This writes `results/imagination_report.md`. Results from our run (one seed, CPU):
+
+* **Calibration:** the detector calls the scene engine a standing scene and the surface heuristic
+  no imagination.
+* **The plain transformer** (98.9% accurate) has **no standing scene**. Nothing before the
+  question affects the answer. It builds what it needs **on demand**: when the question names a
+  letter, it assembles a code for that letter's place relative to the others and answers from it.
+  That code is causally used but is neither a coordinate nor a clean list, so the verdict is
+  "something else".
+* **The Phantasm Slots networks**, which force a standing scene through a bottleneck, did not learn
+  the task in the same budget. That's a hint, not a result.
 
 ## Layout
 
