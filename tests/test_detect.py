@@ -59,8 +59,10 @@ def test_network_patching_is_exact():
     pytest.importorskip("jax")
     import jax.numpy as jnp
     from hyperphantasia.detect import nets
-    for kind in ("plain", "slots"):
-        cfg = nets.NetConfig(kind=kind, d=32, layers=2, enc_layers=1, k_slots=4)
+    small = dict(d=32, layers=2, enc_layers=1)
+    configs = [nets.NetConfig(kind="plain", **small), nets.NetConfig(kind="slots", k_slots=4, **small),
+               nets.anchored_config(**small), nets.slot_attention_config(**small)]
+    for cfg in configs:
         params = nets.init(cfg, 0)
         probs = W.batch(np.random.default_rng(2), 16)
         toks = jnp.asarray(nets.encode(cfg, probs))

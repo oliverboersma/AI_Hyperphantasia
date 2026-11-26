@@ -56,6 +56,7 @@ class NetConfig:
     # after each premise slot (K = number of premise slots). Either way the question side sees
     # the premises only through the slot vectors.
     slot_layout: str = "free"
+    slot_iters: int = 3      # slots with slot_layout="attention": rounds of competition
 
     @property
     def vocab(self) -> int:
@@ -137,6 +138,9 @@ def init(cfg: NetConfig, seed: int = 0):
         dec = cfg.k_slots + (0 if ids else 4 * (cfg.train_queries if cfg.encoding == "slotted" else 1))
         p["pos_dec"] = jax.random.normal(ks[4], (dec, cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
+        if getattr(cfg, "slot_layout", "free") == "attention":
+            p["sa"] = _slot_attention_params(ks[8], cfg.d)
+            p["slots0"] = jax.random.normal(ks[9], (cfg.k_slots, cfg.d)) * 0.5
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
     return p
 
@@ -152,7 +156,15 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
     else:
         prem, query = tokens[:, :cfg.prem_len], tokens[:, cfg.prem_len:]
         anchored = getattr(cfg, "slot_layout", "free") == "anchored"
-        if anchored:  # slot tokens are already in the premise sequence, one after each premise slot
+        competing = getattr(cfg, "slot_layout", "free") == "attention"
+        if competing:  # Slot Attention over the encoded premise tokens
+            e = embed(prem) + params["pos_enc"][None, :cfg.prem_len]
+            keys = word(prem) != W.PAD
+            ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
+            for bp in params["enc"]:
+                e = _block(bp, e, ebias, cfg.heads)
+            slots = _slot_attention(params["sa"], e, keys, params["slots0"], cfg.slot_iters)
+        elif anchored:  # slot tokens are already in the premise sequence, one after each premise slot
             e = embed(prem) + params["pos_enc"][None]
             keys = word(prem) != W.PAD
         else:
@@ -160,10 +172,11 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
             slot_emb = params["tok"][slot_ids] + (params["role"][N_ROLES - 1] if ids else 0.0)
             e = jnp.concatenate([embed(prem), slot_emb], axis=1) + (0.0 if ids else params["pos_enc"][None])
             keys = jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1)
-        ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
-        for bp in params["enc"]:
-            e = _block(bp, e, ebias, cfg.heads)
-        slots = e[:, jnp.asarray(_anchors(cfg))] if anchored else e[:, cfg.prem_len:]
+        if not competing:
+            ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
+            for bp in params["enc"]:
+                e = _block(bp, e, ebias, cfg.heads)
+            slots = e[:, jnp.asarray(_anchors(cfg))] if anchored else e[:, cfg.prem_len:]
         if ids:  # slots carry their own position; question tokens carry role tags
             h = jnp.concatenate([slots + params["pos_dec"][None], embed(query)], axis=1)
         else:
@@ -208,6 +221,50 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
                 rows += [(W.QMARK, 5, 0), (x, 6, 0), (y, 7, 0), (W.ANS, 8, 0)]
         out[i, length - len(rows):] = rows
     return out
+
+
+def _slot_attention_params(key, d):
+    k = jax.random.split(key, 12)
+    gru = {n: _dense(kk, d, d) for n, kk in zip(("wz", "uz", "wr", "ur", "wn", "un"), k[:6])}
+    gru.update(bz=jnp.zeros(d), br=jnp.zeros(d), bn=jnp.zeros(d))
+    return {"ln_in": (jnp.ones(d), jnp.zeros(d)), "ln_s": (jnp.ones(d), jnp.zeros(d)),
+            "ln_m": (jnp.ones(d), jnp.zeros(d)), "wq": _dense(k[6], d, d), "wk": _dense(k[7], d, d),
+            "wv": _dense(k[8], d, d), "gru": gru,
+            "w1": _dense(k[9], d, 2 * d), "b1": jnp.zeros(2 * d), "w2": _dense(k[10], 2 * d, d) * 0.5,
+            "b2": jnp.zeros(d)}
+
+
+def _slot_attention(p, inputs, mask, slots0, iters):
+    """Slot Attention (Locatello et al., 2020) with learned initial slots.
+
+    Each input token's attention is normalised over the slots, so slots compete to explain
+    tokens; each slot then takes the attention-weighted mean of the tokens it won.
+    """
+    d = inputs.shape[-1]
+    x = _ln(inputs, p["ln_in"])
+    k, v = x @ p["wk"], x @ p["wv"]
+    slots = jnp.broadcast_to(slots0, (inputs.shape[0],) + slots0.shape)
+    m = mask.astype(inputs.dtype)[..., None]                       # [B, N, 1]
+    g = p["gru"]
+    for _ in range(iters):
+        prev = slots
+        q = _ln(slots, p["ln_s"]) @ p["wq"]                        # [B, K, d]
+        attn = jax.nn.softmax(jnp.einsum("bnd,bkd->bnk", k, q) / math.sqrt(d), axis=-1)
+        attn = attn * m + 1e-8                                     # padding contributes nothing
+        attn = attn / attn.sum(axis=1, keepdims=True)              # weighted mean over tokens
+        u = jnp.einsum("bnk,bnd->bkd", attn, v)
+        z = jax.nn.sigmoid(u @ g["wz"] + prev @ g["uz"] + g["bz"])
+        r = jax.nn.sigmoid(u @ g["wr"] + prev @ g["ur"] + g["br"])
+        n = jnp.tanh(u @ g["wn"] + r * (prev @ g["un"]) + g["bn"])
+        slots = (1 - z) * n + z * prev
+        h = _ln(slots, p["ln_m"])
+        slots = slots + jax.nn.gelu(h @ p["w1"] + p["b1"]) @ p["w2"] + p["b2"]
+    return slots
+
+
+def slot_attention_config(**kw) -> NetConfig:
+    """Phantasm Slots whose slots compete for premise tokens (Slot Attention)."""
+    return NetConfig(kind="slots", slot_layout="attention", k_slots=W.MAX_N - 1, **kw)
 
 
 def anchored_config(**kw) -> NetConfig:
@@ -424,7 +481,7 @@ def load(path: Path):
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
     for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False),
-                          ("slot_layout", "free")):
+                          ("slot_layout", "free"), ("slot_iters", 3)):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
