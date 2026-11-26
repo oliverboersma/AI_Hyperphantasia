@@ -1,0 +1,13 @@
+Probe: 'is letter L left of x?' at x's site (chance 0.50)
+  layer 1: trained 0.489   untrained 0.500
+  layer 2: trained 0.780   untrained 0.502
+  layer 3: trained 0.787   untrained 0.504
+  surface counts + stated pairs: 0.956
+Move only x (y keeps its rank). Transplant at x's site, layer 2:
+  everything                                     0.81
+  ONE direction: 'is y left of x?'               0.18
+  one direction for an uninvolved letter         0.17
+  one random direction                           0.02
+  all 26 membership directions                  0.78
+  random subspace of the same size              0.38
+
