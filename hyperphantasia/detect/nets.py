@@ -49,6 +49,9 @@ class NetConfig:
     # and causal attention means later questions cannot affect the first answer.
     train_queries: int = 4
     max_train_n: int = 5
+    # slots only: let the encoder attend in both directions (premises and slots see each
+    # other). The question side stays causal and still sees the premises only via the slots.
+    enc_bidirectional: bool = True
 
     @property
     def vocab(self) -> int:
@@ -93,6 +96,11 @@ def _bias(key_ok):
     causal = jnp.tril(jnp.ones((L, L), dtype=bool))
     ok = causal[None] & key_ok[:, None, :]
     return jnp.where(ok, 0.0, -1e9)
+
+
+def _bias_full(key_ok):
+    """Bidirectional attention that hides padding keys."""
+    return jnp.where(jnp.broadcast_to(key_ok[:, None, :], key_ok.shape[:1] + key_ok.shape[1:] * 2), 0.0, -1e9)
 
 
 def _patch(h, pos, vals, proj):
@@ -141,7 +149,8 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
         slot_ids = jnp.broadcast_to(jnp.arange(W.BASE_VOCAB, cfg.vocab), (tokens.shape[0], cfg.k_slots))
         slot_emb = params["tok"][slot_ids] + (params["role"][N_ROLES - 1] if ids else 0.0)
         e = jnp.concatenate([embed(prem), slot_emb], axis=1) + (0.0 if ids else params["pos_enc"][None])
-        ebias = _bias(jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1))
+        keys = jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1)
+        ebias = _bias_full(keys) if getattr(cfg, "enc_bidirectional", False) else _bias(keys)
         for bp in params["enc"]:
             e = _block(bp, e, ebias, cfg.heads)
         slots = e[:, cfg.prem_len:]
@@ -387,7 +396,7 @@ def load(path: Path):
         object.__setattr__(cfg, "encoding", "absolute")
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
-    for name, default in (("train_queries", 1), ("max_train_n", 6)):
+    for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False)):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
