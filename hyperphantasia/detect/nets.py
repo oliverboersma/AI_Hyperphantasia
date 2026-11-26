@@ -38,6 +38,10 @@ class NetConfig:
     k_slots: int = 8         # slots only
     seq_len: int = 1 + W.MAX_PREMISE_TOKENS + 4
     prem_len: int = 1 + W.MAX_PREMISE_TOKENS
+    # "ids": each premise's three tokens share a premise id drawn at random per puzzle, plus a
+    # role tag (left letter, sign, right letter). Grouping is free and no position is special,
+    # so position-bound shortcuts are impossible. "absolute": learned absolute positions.
+    encoding: str = "ids"
 
     @property
     def vocab(self) -> int:
@@ -90,16 +94,25 @@ def _patch(h, pos, vals, proj):
 
 
 # ---------------------------------------------------------------- networks
+N_ROLES, N_PIDS = 10, 9  # roles: pad, BOS, left, sign, right, ?, x, y, =, slot; ids: none + 8
+
+
 def init(cfg: NetConfig, seed: int = 0):
     key = jax.random.PRNGKey(seed)
-    ks = jax.random.split(key, 8)
+    ks = jax.random.split(key, 10)
     p = {"tok": jax.random.normal(ks[0], (cfg.vocab, cfg.d)) * 0.5,
          "lnf": (jnp.ones(cfg.d), jnp.zeros(cfg.d)), "head": _dense(ks[1], cfg.d, 2)}
+    ids = getattr(cfg, "encoding", "absolute") == "ids"
+    if ids:
+        p["role"] = jax.random.normal(ks[6], (N_ROLES, cfg.d)) * 0.5
+        p["pid"] = jax.random.normal(ks[7], (N_PIDS, cfg.d)) * 0.5
     if cfg.kind == "plain":
-        p["pos"] = jax.random.normal(ks[2], (cfg.seq_len, cfg.d)) * 0.5
+        if not ids:
+            p["pos"] = jax.random.normal(ks[2], (cfg.seq_len, cfg.d)) * 0.5
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.layers)]
     else:
-        p["pos_enc"] = jax.random.normal(ks[2], (cfg.prem_len + cfg.k_slots, cfg.d)) * 0.5
+        if not ids:
+            p["pos_enc"] = jax.random.normal(ks[2], (cfg.prem_len + cfg.k_slots, cfg.d)) * 0.5
         p["pos_dec"] = jax.random.normal(ks[4], (cfg.k_slots + 4, cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
@@ -113,19 +126,23 @@ def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=Non
     For ``plain`` the residual positions are the sequence positions. For
     ``slots`` they are the decoder positions: K slot vectors, then ? x y =.
     """
+    ids = getattr(cfg, "encoding", "absolute") == "ids"
+    embed = (lambda t: params["tok"][t[..., 0]] + params["role"][t[..., 1]] + params["pid"][t[..., 2]]) \
+        if ids else (lambda t: params["tok"][t])
+    word = (lambda t: t[..., 0]) if ids else (lambda t: t)
     if cfg.kind == "plain":
-        h = params["tok"][tokens] + params["pos"][None]
-        bias = _bias(tokens != W.PAD)
+        h = embed(tokens) + (0.0 if ids else params["pos"][None])
+        bias = _bias(word(tokens) != W.PAD)
     else:
         prem, query = tokens[:, :cfg.prem_len], tokens[:, cfg.prem_len:]
         slot_ids = jnp.broadcast_to(jnp.arange(W.BASE_VOCAB, cfg.vocab), (tokens.shape[0], cfg.k_slots))
-        enc_tok = jnp.concatenate([prem, slot_ids], axis=1)
-        e = params["tok"][enc_tok] + params["pos_enc"][None]
-        ebias = _bias(enc_tok != W.PAD)
+        slot_emb = params["tok"][slot_ids] + (params["role"][N_ROLES - 1] if ids else 0.0)
+        e = jnp.concatenate([embed(prem), slot_emb], axis=1) + (0.0 if ids else params["pos_enc"][None])
+        ebias = _bias(jnp.concatenate([word(prem) != W.PAD, jnp.ones_like(slot_ids, dtype=bool)], axis=1))
         for bp in params["enc"]:
             e = _block(bp, e, ebias, cfg.heads)
         slots = e[:, cfg.prem_len:]
-        h = jnp.concatenate([slots, params["tok"][query]], axis=1) + params["pos_dec"][None]
+        h = jnp.concatenate([slots, embed(query)], axis=1) + params["pos_dec"][None]
         bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
     if patch_layer == 0:
         h = _patch(h, patch_pos, patch_vals, proj)
@@ -139,7 +156,28 @@ def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=Non
     return logits, resid
 
 
+def _ids(problems, length: int, premises: bool, query: bool) -> np.ndarray:
+    out = np.zeros((len(problems), length, 3), dtype=np.int32)
+    out[..., 0] = W.PAD
+    for i, p in enumerate(problems):
+        rows = []
+        if premises:
+            rng = np.random.default_rng(abs(hash(p.premises)) % 2 ** 32)  # deterministic per puzzle
+            pids = rng.permutation(np.arange(1, N_PIDS))
+            rows.append((W.BOS, 1, 0))
+            for k, (a, op, b) in enumerate(p.premises):
+                rows += [(a, 2, pids[k]), (op, 3, pids[k]), (b, 4, pids[k])]
+        if query:
+            rows += [(W.QMARK, 5, 0), (p.query[0], 6, 0), (p.query[1], 7, 0), (W.ANS, 8, 0)]
+        out[i, length - len(rows):] = rows
+    return out
+
+
 def encode(cfg: NetConfig, problems) -> np.ndarray:
+    if getattr(cfg, "encoding", "absolute") == "ids":
+        if cfg.kind == "plain":
+            return _ids(problems, cfg.seq_len, True, True)
+        return np.concatenate([_ids(problems, cfg.prem_len, True, False), _ids(problems, 4, False, True)], axis=1)
     if cfg.kind == "plain":
         return W.encode_sequence(problems, cfg.seq_len)
     q = np.array([[W.QMARK, p.query[0], p.query[1], W.ANS] for p in problems], dtype=np.int32)
@@ -207,6 +245,8 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
     if checkpoint and Path(checkpoint).exists():
         with open(checkpoint, "rb") as f:
             ck = pickle.load(f)
+        if ck.get("cfg") != cfg or ck.get("curriculum") != curriculum:
+            raise ValueError(f"{checkpoint} was saved for a different network; delete it to start over")
         params = jax.tree_util.tree_map(jnp.asarray, ck["params"])
         opt = (ck["opt"][0], *(jax.tree_util.tree_map(jnp.asarray, x) for x in ck["opt"][1:]))
         rng, log, first = ck["rng"], ck["log"], ck["step"] + 1
@@ -227,7 +267,8 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             if checkpoint:
                 Path(checkpoint).parent.mkdir(parents=True, exist_ok=True)
                 with open(checkpoint, "wb") as f:
-                    pickle.dump({"params": jax.tree_util.tree_map(np.asarray, params), "step": s,
+                    pickle.dump({"cfg": cfg, "curriculum": curriculum,
+                                 "params": jax.tree_util.tree_map(np.asarray, params), "step": s,
                                  "opt": (int(opt[0]), *(jax.tree_util.tree_map(np.asarray, x) for x in opt[1:])),
                                  "rng": rng, "log": log}, f)
             if acc >= target and s >= 1000:
@@ -244,4 +285,7 @@ def save(path: Path, cfg: NetConfig, params, log: TrainLog) -> None:
 def load(path: Path):
     with open(path, "rb") as f:
         blob = pickle.load(f)
-    return blob["cfg"], jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
+    cfg = blob["cfg"]
+    if "encoding" not in cfg.__dict__:  # saved before the encoding option existed
+        object.__setattr__(cfg, "encoding", "absolute")
+    return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]

@@ -129,8 +129,19 @@ no.
 ## 5. Subjects
 
 Both networks are trained **only on the yes/no answer**. Nothing about the scene is supervised.
-Every training batch mixes worlds of two to six letters. An earlier run that started with tiny
-worlds and grew them is examined too, because it learned something instructive (see results).
+Every training batch mixes worlds of two to six letters.
+
+**Input encoding.** Each premise's three tokens share a premise ID, drawn at random for every
+puzzle, and carry a role tag (left letter, sign, right letter). Absolute positions are not used.
+This makes grouping tokens into premises free and makes position-bound shortcuts impossible. It
+tells the network nothing about the hidden order. It was needed because of what happened with
+absolute positions:
+
+* Starting with tiny worlds and growing them, the plain transformer learned to answer by looking
+  at fixed positions just before the question. It was perfect on 2–3 letter worlds, but on
+  5-letter worlds it answered only 65% of questions about pairs that were stated outright, so it
+  wasn't failing at composition at all. That run is examined as an extra subject.
+* Mixing all world sizes from the start, it made no progress at all in 2000 steps.
 
 * **Plain transformer**: 4 layers, width 64, 4 heads, causal attention over the whole sequence.
   Any imagination it has is an invention of its mechanism.
