@@ -42,6 +42,11 @@ class NetConfig:
     # role tag (left letter, sign, right letter). Grouping is free and no position is special,
     # so position-bound shortcuts are impossible. "absolute": learned absolute positions.
     encoding: str = "ids"
+    # Training only ever supervises answers. Each training sequence asks ``train_queries``
+    # questions about the same premises (more answer bits per pass); evaluation asks one,
+    # and causal attention means later questions cannot affect the first answer.
+    train_queries: int = 4
+    max_train_n: int = 5
 
     @property
     def vocab(self) -> int:
@@ -113,19 +118,13 @@ def init(cfg: NetConfig, seed: int = 0):
     else:
         if not ids:
             p["pos_enc"] = jax.random.normal(ks[2], (cfg.prem_len + cfg.k_slots, cfg.d)) * 0.5
-        p["pos_dec"] = jax.random.normal(ks[4], (cfg.k_slots + 4, cfg.d)) * 0.5
+        p["pos_dec"] = jax.random.normal(ks[4], (cfg.k_slots + (0 if ids else 4), cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
     return p
 
 
-@partial(jax.jit, static_argnames=("cfg", "patch_layer"))
-def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None):
-    """Returns (logits [B,2], residuals: list over layers of [B, L, d]).
-
-    For ``plain`` the residual positions are the sequence positions. For
-    ``slots`` they are the decoder positions: K slot vectors, then ? x y =.
-    """
+def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None):
     ids = getattr(cfg, "encoding", "absolute") == "ids"
     embed = (lambda t: params["tok"][t[..., 0]] + params["role"][t[..., 1]] + params["pid"][t[..., 2]]) \
         if ids else (lambda t: params["tok"][t])
@@ -142,7 +141,10 @@ def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=Non
         for bp in params["enc"]:
             e = _block(bp, e, ebias, cfg.heads)
         slots = e[:, cfg.prem_len:]
-        h = jnp.concatenate([slots, embed(query)], axis=1) + params["pos_dec"][None]
+        if ids:  # slots carry their own position; question tokens carry role tags
+            h = jnp.concatenate([slots + params["pos_dec"][None], embed(query)], axis=1)
+        else:
+            h = jnp.concatenate([slots, embed(query)], axis=1) + params["pos_dec"][None]
         bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
     if patch_layer == 0:
         h = _patch(h, patch_pos, patch_vals, proj)
@@ -152,11 +154,21 @@ def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=Non
         if patch_layer == i + 1:
             h = _patch(h, patch_pos, patch_vals, proj)
         resid.append(h)
-    logits = _ln(h[:, -1], params["lnf"]) @ params["head"]
-    return logits, resid
+    return h, resid
 
 
-def _ids(problems, length: int, premises: bool, query: bool) -> np.ndarray:
+@partial(jax.jit, static_argnames=("cfg", "patch_layer"))
+def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None):
+    """Returns (logits [B,2] at the last position, residuals: list over layers of [B, L, d]).
+
+    For ``plain`` the residual positions are the sequence positions. For
+    ``slots`` they are the decoder positions: K slot vectors, then ? x y =.
+    """
+    h, resid = _trunk(params, tokens, cfg, patch_layer, patch_pos, patch_vals, proj)
+    return _ln(h[:, -1], params["lnf"]) @ params["head"], resid
+
+
+def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.ndarray:
     out = np.zeros((len(problems), length, 3), dtype=np.int32)
     out[..., 0] = W.PAD
     for i, p in enumerate(problems):
@@ -168,9 +180,36 @@ def _ids(problems, length: int, premises: bool, query: bool) -> np.ndarray:
             for k, (a, op, b) in enumerate(p.premises):
                 rows += [(a, 2, pids[k]), (op, 3, pids[k]), (b, 4, pids[k])]
         if query:
-            rows += [(W.QMARK, 5, 0), (p.query[0], 6, 0), (p.query[1], 7, 0), (W.ANS, 8, 0)]
+            for x, y in [p.query] + list(extra[i] if extra else []):
+                rows += [(W.QMARK, 5, 0), (x, 6, 0), (y, 7, 0), (W.ANS, 8, 0)]
         out[i, length - len(rows):] = rows
     return out
+
+
+def encode_train(cfg: NetConfig, problems, rng):
+    """Training sequences with several questions; returns (tokens, labels, mask) per position."""
+    q = cfg.train_queries
+    extra = []
+    for p in problems:
+        pairs = [tuple(int(v) for v in rng.choice(p.order, size=2, replace=False)) for _ in range(q - 1)]
+        extra.append(pairs)
+    if cfg.kind == "plain":  # no positions are used, so the shortest padding will do
+        toks = _ids(problems, 1 + 3 * (cfg.max_train_n - 1) + 4 * q, True, True, extra)
+        offset = 0
+    else:
+        prem_len = cfg.prem_len  # the network splits premises from questions here
+        toks = np.concatenate([_ids(problems, prem_len, True, False),
+                               _ids(problems, 4 * q, False, True, extra)], axis=1)
+        offset = prem_len - cfg.k_slots  # decoder positions = K slots, then the questions
+    L = toks.shape[1] - offset
+    y = np.zeros((len(problems), L), dtype=np.int32)
+    mask = np.zeros((len(problems), L), dtype=np.float32)
+    for i, p in enumerate(problems):
+        r = p.rank
+        for j, (a, b) in enumerate([p.query] + extra[i]):
+            pos = L - 1 - 4 * (q - 1 - j)
+            y[i, pos], mask[i, pos] = int(r[a] < r[b]), 1.0
+    return toks, y, mask
 
 
 def encode(cfg: NetConfig, problems) -> np.ndarray:
@@ -201,15 +240,16 @@ class TrainLog:
     acc: list[float] = field(default_factory=list)
 
 
-def _loss(params, tokens, y, cfg):
-    logits, _ = forward(params, tokens, cfg)
-    logp = jax.nn.log_softmax(logits)
-    return -jnp.take_along_axis(logp, y[:, None], axis=1).mean()
+def _loss(params, tokens, y, mask, cfg):
+    h, _ = _trunk(params, tokens, cfg)
+    logp = jax.nn.log_softmax(_ln(h, params["lnf"]) @ params["head"])  # [B, L, 2]
+    nll = -jnp.take_along_axis(logp, y[..., None], axis=-1)[..., 0]
+    return (nll * mask).sum() / mask.sum()
 
 
 @partial(jax.jit, static_argnames=("cfg",))
-def _step(params, opt, tokens, y, lr, cfg):
-    loss, g = jax.value_and_grad(_loss)(params, tokens, y, cfg)
+def _step(params, opt, tokens, y, mask, lr, cfg):
+    loss, g = jax.value_and_grad(_loss)(params, tokens, y, mask, cfg)
     t, m, v = opt
     t = t + 1
     m = jax.tree_util.tree_map(lambda a, b: 0.9 * a + 0.1 * b, m, g)
@@ -239,7 +279,7 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
     params = init(cfg, seed)
     zeros = jax.tree_util.tree_map(jnp.zeros_like, params)
     opt = (0, zeros, zeros)
-    val = W.batch(np.random.default_rng(seed + 1000), 2000)
+    val = W.batch(np.random.default_rng(seed + 1000), 2000, ns=tuple(range(3, cfg.max_train_n + 1)))
     log = TrainLog()
     first = 1
     if checkpoint and Path(checkpoint).exists():
@@ -254,11 +294,19 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             print(f"  [{cfg.kind}] resumed at step {first}", flush=True)
     for s in range(first, steps + 1):
         # Only the yes/no answer is ever trained; nothing about the scene is supervised.
-        max_n = min(6, 3 + int(4 * s / (0.6 * steps))) if curriculum else 6
+        top = cfg.max_train_n
+        max_n = min(top, 3 + int((top - 2) * s / (0.6 * steps))) if curriculum else top
         probs = W.batch(rng, batch, ns=tuple(range(2, max_n + 1)))
         cur_lr = lr * min(1.0, s / 200) * (0.5 * (1 + math.cos(math.pi * s / steps)) * 0.9 + 0.1)
-        params, opt, loss = _step(params, opt, jnp.asarray(encode(cfg, probs)),
-                                  jnp.asarray(W.labels(probs)), cur_lr, cfg)
+        toks, y, mask = encode_train(cfg, probs, rng) if cfg.encoding == "ids" else \
+            (encode(cfg, probs), None, None)
+        if y is None:  # older absolute-position networks: one question per sequence
+            y = np.zeros(toks.shape[:2], dtype=np.int32); y[:, -1] = W.labels(probs)
+            mask = np.zeros(toks.shape[:2], dtype=np.float32); mask[:, -1] = 1.0
+            if cfg.kind == "slots":
+                y, mask = y[:, cfg.prem_len - cfg.k_slots:], mask[:, cfg.prem_len - cfg.k_slots:]
+        params, opt, loss = _step(params, opt, jnp.asarray(toks), jnp.asarray(y), jnp.asarray(mask),
+                                  cur_lr, cfg)
         if s % log_every == 0 or s == steps:
             acc = accuracy(params, cfg, val)
             log.steps.append(s); log.loss.append(float(loss)); log.acc.append(acc)
@@ -286,6 +334,8 @@ def load(path: Path):
     with open(path, "rb") as f:
         blob = pickle.load(f)
     cfg = blob["cfg"]
-    if "encoding" not in cfg.__dict__:  # saved before the encoding option existed
+    if "encoding" not in cfg.__dict__:  # saved before these options existed
         object.__setattr__(cfg, "encoding", "absolute")
+        object.__setattr__(cfg, "train_queries", 1)
+        object.__setattr__(cfg, "max_train_n", 6)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
