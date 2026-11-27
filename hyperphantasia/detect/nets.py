@@ -60,6 +60,9 @@ class NetConfig:
     # slot_layout="attention" only: also write each token's raw letter embedding into the slots,
     # so the question's letter and the slot contents start out in the same space.
     slot_raw_values: bool = False
+    # slot_layout="attention" only: a gated "side door" from the decoder straight to the encoded
+    # premises. Training opens it fully, then closes it; evaluation always runs with it shut.
+    slot_side_door: bool = False
 
     @property
     def vocab(self) -> int:
@@ -143,12 +146,15 @@ def init(cfg: NetConfig, seed: int = 0):
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
         if getattr(cfg, "slot_layout", "free") == "attention":
             p["sa"] = _slot_attention_params(ks[8], cfg.d)
+            if getattr(cfg, "slot_side_door", False):
+                p["side"] = [_cross_params(k, cfg.d) for k in jax.random.split(ks[7], cfg.layers)]
             p["slots0"] = jax.random.normal(ks[9], (cfg.k_slots, cfg.d)) * 0.5
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
     return p
 
 
-def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None):
+def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None,
+           side=0.0):
     ids = getattr(cfg, "encoding", "absolute") == "ids"
     embed = (lambda t: params["tok"][t[..., 0]] + params["role"][t[..., 1]] + params["pid"][t[..., 2]]) \
         if ids else (lambda t: params["tok"][t])
@@ -190,8 +196,11 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
     if patch_layer == 0:
         h = _patch(h, patch_pos, patch_vals, proj)
     resid = [h]
+    door = cfg.kind == "slots" and getattr(cfg, "slot_side_door", False)
     for i, bp in enumerate(params["blocks"]):
         h = _block(bp, h, bias, cfg.heads)
+        if door:  # contributes exactly nothing when side == 0
+            h = h + side * _cross(params["side"][i], h, e, keys, cfg.heads)
         if patch_layer == i + 1:
             h = _patch(h, patch_pos, patch_vals, proj)
         resid.append(h)
@@ -199,13 +208,14 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
 
 
 @partial(jax.jit, static_argnames=("cfg", "patch_layer"))
-def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None):
+def forward(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None, patch_vals=None, proj=None,
+            side=0.0):
     """Returns (logits [B,2] at the last position, residuals: list over layers of [B, L, d]).
 
     For ``plain`` the residual positions are the sequence positions. For
     ``slots`` they are the decoder positions: K slot vectors, then ? x y =.
     """
-    h, resid = _trunk(params, tokens, cfg, patch_layer, patch_pos, patch_vals, proj)
+    h, resid = _trunk(params, tokens, cfg, patch_layer, patch_pos, patch_vals, proj, side)
     return _ln(h[:, -1], params["lnf"]) @ params["head"], resid
 
 
@@ -225,6 +235,29 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
                 rows += [(W.QMARK, 5, 0), (x, 6, 0), (y, 7, 0), (W.ANS, 8, 0)]
         out[i, length - len(rows):] = rows
     return out
+
+
+def _cross_params(key, d):
+    k = jax.random.split(key, 3)
+    return {"ln": (jnp.ones(d), jnp.zeros(d)), "wq": _dense(k[0], d, d), "wkv": _dense(k[1], d, 2 * d),
+            "wo": _dense(k[2], d, d) * 0.5}
+
+
+def _cross(p, h, e, ok, heads):
+    """Multi-head cross-attention from decoder states h to encoder outputs e (padding masked)."""
+    B, L, d = h.shape
+    q = _ln(h, p["ln"]) @ p["wq"]
+    k, v = jnp.split(e @ p["wkv"], 2, axis=-1)
+    split = lambda t: t.reshape(B, t.shape[1], heads, d // heads).transpose(0, 2, 1, 3)
+    q, k, v = split(q), split(k), split(v)
+    bias = jnp.where(ok[:, None, None, :], 0.0, -1e9)
+    att = jax.nn.softmax(q @ k.transpose(0, 1, 3, 2) / math.sqrt(d // heads) + bias, axis=-1)
+    return (att @ v).transpose(0, 2, 1, 3).reshape(B, L, d) @ p["wo"]
+
+
+def side_door_config(**kw) -> NetConfig:
+    """Slot Attention network trained with a side door that is closed by the end of training."""
+    return NetConfig(kind="slots", slot_layout="attention", k_slots=W.MAX_N - 1, slot_side_door=True, **kw)
 
 
 def _slot_attention_params(key, d):
@@ -388,16 +421,16 @@ class TrainLog:
     acc: list[float] = field(default_factory=list)
 
 
-def _loss(params, tokens, y, mask, cfg):
-    h, _ = _trunk(params, tokens, cfg)
+def _loss(params, tokens, y, mask, cfg, side=0.0):
+    h, _ = _trunk(params, tokens, cfg, side=side)
     logp = jax.nn.log_softmax(_ln(h, params["lnf"]) @ params["head"])  # [B, L, 2]
     nll = -jnp.take_along_axis(logp, y[..., None], axis=-1)[..., 0]
     return (nll * mask).sum() / mask.sum()
 
 
 @partial(jax.jit, static_argnames=("cfg",))
-def _step(params, opt, tokens, y, mask, lr, cfg):
-    loss, g = jax.value_and_grad(_loss)(params, tokens, y, mask, cfg)
+def _step(params, opt, tokens, y, mask, lr, cfg, side=0.0):
+    loss, g = jax.value_and_grad(_loss)(params, tokens, y, mask, cfg, side)
     t, m, v = opt
     t = t + 1
     m = jax.tree_util.tree_map(lambda a, b: 0.9 * a + 0.1 * b, m, g)
@@ -412,6 +445,11 @@ def _step(params, opt, tokens, y, mask, lr, cfg):
 def accuracy(params, cfg, problems) -> float:
     logits, _ = forward(params, jnp.asarray(encode(cfg, problems)), cfg)
     return float((np.asarray(logits).argmax(-1) == W.labels(problems)).mean())
+
+
+def _door(s: int, steps: int) -> float:
+    """Side-door gate: open for the first 30% of training, closing linearly until 70%, then shut."""
+    return float(min(1.0, max(0.0, (0.7 - s / steps) / 0.4)))
 
 
 def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3, seed: int = 0,
@@ -454,13 +492,15 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             mask = np.zeros(toks.shape[:2], dtype=np.float32); mask[:, -1] = 1.0
             if cfg.kind == "slots":
                 y, mask = y[:, cfg.prem_len - cfg.k_slots:], mask[:, cfg.prem_len - cfg.k_slots:]
+        side = _door(s, steps) if getattr(cfg, "slot_side_door", False) else 0.0
         params, opt, loss = _step(params, opt, jnp.asarray(toks), jnp.asarray(y), jnp.asarray(mask),
-                                  cur_lr, cfg)
+                                  cur_lr, cfg, side)
         if s % log_every == 0 or s == steps:
             acc = accuracy(params, cfg, val)
             log.steps.append(s); log.loss.append(float(loss)); log.acc.append(acc)
             if verbose:
-                print(f"  [{cfg.kind}] step {s:>5}  loss {float(loss):.4f}  val acc {acc:.3f}", flush=True)
+                extra = f"  side door {side:.2f}" if getattr(cfg, "slot_side_door", False) else ""
+                print(f"  [{cfg.kind}] step {s:>5}  loss {float(loss):.4f}  val acc {acc:.3f}{extra}", flush=True)
             if checkpoint:
                 Path(checkpoint).parent.mkdir(parents=True, exist_ok=True)
                 with open(checkpoint, "wb") as f:
@@ -468,7 +508,7 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
                                  "params": jax.tree_util.tree_map(np.asarray, params), "step": s,
                                  "opt": (int(opt[0]), *(jax.tree_util.tree_map(np.asarray, x) for x in opt[1:])),
                                  "rng": rng, "log": log}, f)
-            if acc >= target and s >= 1000:
+            if acc >= target and s >= 1000 and not (getattr(cfg, "slot_side_door", False) and side > 0):
                 break
     return params, log
 
@@ -488,7 +528,8 @@ def load(path: Path):
         object.__setattr__(cfg, "train_queries", 1)
         object.__setattr__(cfg, "max_train_n", 6)
     for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False),
-                          ("slot_layout", "free"), ("slot_iters", 3), ("slot_raw_values", False)):
+                          ("slot_layout", "free"), ("slot_iters", 3), ("slot_raw_values", False),
+                          ("slot_side_door", False)):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]

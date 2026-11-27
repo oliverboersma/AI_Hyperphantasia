@@ -28,6 +28,10 @@ EXPECTED = {"known positive: scene engine": "standing scene",
 NOTES = {
     "plain": "Nothing in this architecture reserves a place for a scene; whatever is found here was "
              "invented by training.",
+    "side-door": "Slot Attention network trained with a side door from the question to the encoded "
+                 "premises that was open early in training and fully shut for the last 30%; it is "
+                 "examined with the door shut, so all information about the premises must pass through "
+                 "its 6 slots. The open question is whether the slots hold a scene (decodable ranks).",
     "attention": "The architecture forces all information about the premises through 6 slot vectors "
                  "that compete for premise tokens (Slot Attention), so transplanting the slots (the *scene* "
                  "site, layer 0) must move the answer if the network works at all. The open question is "
@@ -73,7 +77,8 @@ def main(argv=None) -> int:
 
     from . import nets
     for kind in args.kinds.split(","):
-        cfg = {"anchored": nets.anchored_config, "attention": nets.slot_attention_config}.get(
+        cfg = {"anchored": nets.anchored_config, "attention": nets.slot_attention_config,
+               "side-door": nets.side_door_config}.get(
             kind, lambda: nets.NetConfig(kind=kind))()
         cur = not args.no_curriculum
         path = Path(args.cache) / f"{kind}_seed{args.seed}_steps{args.steps}{'_curriculum' if cur else ''}.pkl"
@@ -89,7 +94,8 @@ def main(argv=None) -> int:
             print(f"   trained in {time.time() - t:.0f}s")
         name = {"plain": "plain transformer", "slots": "Phantasm Slots transformer",
                 "anchored": "Phantasm Slots transformer (anchored slots)",
-                "attention": "Phantasm Slots transformer (slot attention)"}[kind]
+                "attention": "Phantasm Slots transformer (slot attention)",
+                "side-door": "Phantasm Slots transformer (slot attention, side door shut)"}[kind]
         subject = NeuralSubject(cfg, params, name)
         control = NeuralSubject(cfg, nets.init(cfg, args.seed + 99), f"untrained {name}")
         print(f"3. examining {name}")
