@@ -62,32 +62,37 @@ a learnability argument, and the evidence narrows it down.
 
 ## What the on-demand code probably is
 
-The evidence about seed 0's code at x's site, at layer 2:
+*Revised after the alignment search at the end of this document. The first reading here, a
+superposed set of x's neighbours, did not survive it.*
+
+The evidence about seed 0's code at x's site, at layer 2, from the first round:
 
 * It is causally decisive: transplanting it moves the answer 81% of the time.
-* It is not a coordinate: transplanting only the rank directions does nothing (2%).
+* The linear rank probe's directions are not causal: transplanting only those does nothing (2%).
 * Most of its effect lies in the span of "is letter L left of x?" directions (78%, against 38% for
   a random span of the same size).
 * No single letter's direction is specific: editing y's own direction (18%) does no better than
   editing an uninvolved letter's (17%).
 
-A consistent reading is that x's site holds a superposed set of x's neighbourhood: the letters
-reachable to its left and to its right within a couple of hops, each carried in its letter's
-embedding direction with a sign. y's site holds y's neighbourhood the same way, and the answer is
-computed from the overlap of the two. That explains the lack of specificity. Moving x changes the
-membership of several letters at once, so flipping only y's entry rarely changes the overlap
-enough to change the answer.
+The first reading was that x's site holds a set of x's neighbours (the letters to its left and
+right, each in its own embedding direction), y's site holds y's, and the answer reads the overlap.
+That reading predicts that transplanting x's code from a world with a different order carries
+that world's relations, so the answer becomes that world's own answer. It does so only 41% of
+the time.
 
-The other observations fit this reading:
+**Current reading: a coordinate, built on demand.** Alignment search finds that one direction of the
+64 carries almost all of the site's effect. It holds x's place on the line as a number, sharp at the
+two ends and crowded in the middle, and the network compares it with y's place. The linear probe's
+rank directions missed it. The 26 membership directions caught most of it because a
+direction that orders the letters correlates with every "is L left of x?" relation.
 
-* **Seed differences.** Seed 1 appears to lean on a cruder feature, nearness to an end, which is
-  causal through a few rank-like directions but weak on middle letters. That fits its lower
-  composition score (83%).
-* **Shared codes.** The rotation transfer says that, whatever their probe-visible differences, the
-  seeds' codes mostly share one geometry. That is what you would expect if the code is built from
-  the letter embeddings themselves: the neighbourhood set is the natural object for this computation,
-  so independent runs converge on it, which is a small-scale version of the Platonic Representation
-  Hypothesis.
+Two older observations read differently now:
+
+* **Seed differences.** Seed 1's rank-probe directions were causal (83%), and its code looked like
+  nearness to an end. Seed 0's coordinate is also sharpest at the ends, so the seeds may differ
+  less than the probes suggested.
+* **Shared codes.** The rotation transfer between seeds fits a shared coordinate well: a single
+  ordered axis is the natural object for this computation, so independent runs converge on it.
 
 ## How this fits other work
 
@@ -129,6 +134,7 @@ Each of these would test the account, and most are cheap to run here:
    closes.
 3. **The answer reads an overlap.** Transplanting the neighbourhood span at both x's and y's sites
    together should move the answer far more reliably than either alone, and close to always.
+   (Derived from the neighbourhood reading, which the alignment search later disfavoured.)
 4. **Language models compose on demand without a scratchpad.** With a single question after a static
    description, an LLM should decide at the question tokens. With chain-of-thought, the written chain
    should act as the standing scene, and editing it should change the answer.
@@ -286,6 +292,83 @@ that the network uses it. Here the scene a probe found was real but mostly a by-
 scene the network used was much smaller than the one on display. One network and one seed; the
 redundant copy might be a leftover of training through the side door, which the same search on
 other runs could check.
+
+## The on-demand code, read by alignment search
+
+`das_plain.py` and `das_plain_coordinate.py`, on the plain transformer (seed 0), at x's site in
+layer 2 (64 dimensions). It is the same search as for the slots, on the code the plain network
+builds when the question names x.
+
+**Size.** "Move only x" pairs (x swaps with a letter beyond y, so y keeps its place), on held-out
+pairs whose answers differ:
+
+| Transplant | Answer follows the other world | Random directions of the same size |
+|---|---|---|
+| the whole site | 0.816 | |
+| 1 learned direction | **0.802** | 0.017 |
+| 2 learned directions | 0.846 | 0.017 |
+| 4 / 8 / 16 learned directions | 0.848 / 0.850 / 0.851 | 0.034 / 0.036 / 0.102 |
+
+**Coordinate or relations?** The other world now has the same letters in a new order. A transplant
+of x's code then predicts two different answers. If the code is a **coordinate**, the network
+compares x's place in the other world with y's place in its own. If the code holds
+x's **relations**, it gives the other world's own answer. Each hypothesis is scored on the pairs
+where its answer differs from the base answer:
+
+| Transplant | follows "relations" | follows "coordinate" |
+|---|---|---|
+| the whole site | 0.41 | **0.73** |
+| 1 learned direction | 0.41 | **0.74** |
+| 8 learned directions | 0.46 | **0.81** |
+| 8 directions fitted to each hypothesis | 0.42 | **0.76** |
+
+A first version of this comparison scored the pairs where the two hypotheses disagree. That was
+confounded, because there the unpatched network already agrees with "coordinate" 85% of the time.
+
+**The direction itself.** Its mean value for x at ranks 0 to 4 is +17.6, +4.5, +0.5, −4.4 and
+−19.2 (standard deviations 3 to 5). Its rank correlation with x's rank is −0.93, against 0.79 for
+the best linear guess from surface counts, and it keeps a correlation of −0.57 with rank once
+surface counts are partialled out.
+
+**Placing x by setting the number.** x's code is set to its mean value for rank r, everything
+else is left alone, and the test counts how often the answer changes as if x sat at r. Only cases
+where that must change the answer are counted:
+
+| Directions set | r = 0 | 1 | 2 | 3 | 4 | overall |
+|---|---|---|---|---|---|---|
+| 1 | 0.95 | 0.57 | 0.12 | 0.59 | 0.97 | 0.75 |
+| 2 | 0.98 | 0.59 | 0.46 | 0.57 | 0.98 | 0.80 |
+| 4 | 0.98 | 0.60 | 0.47 | 0.58 | 0.98 | 0.81 |
+| 1 random direction | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.002 |
+
+* **The code is almost one number.** One direction out of 64 carries 98% of what the whole site
+  carries. Two carry slightly more than the whole site, which also holds information that works
+  against the transplant.
+* **It is a coordinate.** A transplant carries x's place from the other world, and the network
+  compares it with y's place in its own world (0.73 to 0.81). It does not carry the other world's
+  relations (0.41 to 0.46).
+* **It is composed, not counted.** The values come in rank order and track rank much better than
+  surface counts do. They stay related to rank once those counts are removed.
+* **It is a number line, sharp at the ends and blurry in the middle.** The ends lie far apart and
+  the middle three ranks are crowded. Setting the number puts x at either end almost every time
+  (95 to 98%), but into the middle much less often (12% with one direction, 46% with two). A
+  second direction carries much of the middle, and more directions add nothing.
+
+**Reading.** Asked about x, the plain transformer imagines one thing: where x sits on the line, as
+a number. It then compares that with where y sits. It never builds the line, only the point it
+was asked about. That is the smallest scene that answers the question, built when the question
+arrives, which is what the amortisation account says an on-demand system should do.
+
+This revises the first round's "not a coordinate". The linear rank probe's directions were simply
+not the ones the network uses. Together with the slots, where the readable scene was the one not
+used, probes and causal structure come apart in both directions here. It also bears on prediction A
+of the pre-registered test: the left-of-only network already held a coordinate at x's site, which
+the linear tools could not see. That puts the detector's fixed verdict, "something else", in
+context, though the verdict stands as registered.
+
+**Limits.** One seed. Setting a mean value is a blunt intervention. The network answers middle
+comparisons almost perfectly, so it must get finer middle information from somewhere else,
+possibly straight from the stated premises at y's site.
 
 ## What could make this wrong
 

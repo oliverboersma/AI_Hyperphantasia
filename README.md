@@ -177,8 +177,11 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
 * **The plain transformer** (98.9% accurate) has **no standing scene**. Nothing before the
   question affects the answer. It builds what it needs **on demand**: when the question names a
   letter, it assembles a code for that letter's place relative to the others and answers from it.
-  That code is causally used but is neither a coordinate nor a clean list, so the verdict is
-  "something else".
+  The detector's fixed tests could not read that code, so the verdict is "something else". A later
+  alignment search found what it is: mostly **one number**, x's place on the line. It is sharp at
+  the ends and blurry in the middle, and the network compares it with y's place. One learned
+  direction carries 80% of the effect, and setting it moves x to either end 95–98% of the time. The
+  network imagines only the point it is asked about.
 * **Across three training runs**, no network builds a standing scene, and a single rotation lets
   one run's on-demand code stand in for another's (91% transfer between seeds 0 and 1, against
   88% for the recipient's own state), in the spirit of Hazy Research's "Plato's Key". How well

@@ -68,8 +68,14 @@ runs" hold beyond one run per design.
 ## 4. Read the on-demand code properly
 
 * **Learned rotation.** Use distributed alignment search: learn a rotation at x's site that isolates
-  one causal variable, instead of relying on probe directions. The same method already worked on
-  the bottleneck's slots (item 1b), so the code in `das_slots.py` can be reused.
+  one causal variable, instead of relying on probe directions.
+
+  **Status: done for seed 0** (`das_plain.py`, `das_plain_coordinate.py`). The code is mostly one
+  number, x's place on the line (one direction carries 80% of the site's 82%). It is a coordinate
+  rather than a set of relations (73–81% against 41–46%), sharp at the ends and blurry in the middle.
+  Next: run the same scripts on seeds 1 and 2 (`python das_plain.py <checkpoint>`), and on the
+  network trained with position questions. Also find where the finer middle information comes from,
+  perhaps the stated premises read at y's site.
 * **Candidate variables.** Test "rank of x", "letters left of x", and "distance to the nearest end".
 
 **Settles.** What exactly the plain transformer computes when it is asked, which is so far only

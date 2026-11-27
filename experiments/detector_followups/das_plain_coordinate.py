@@ -11,6 +11,8 @@ Follow-up to das_plain.py (same network, site and pairs).
    coordinate to its mean value for rank r and leave everything else as it is. A coordinate should
    make the network answer "r < rank(y)", as if x had been put at r. Control: the same with a
    random direction.
+4. The same placement with learned subspaces of 1, 2 and 4 directions (x's whole k-dim code set to
+   its mean for rank r): does the middle of the line live in a second direction?
 
     python experiments/detector_followups/das_plain_coordinate.py
 """

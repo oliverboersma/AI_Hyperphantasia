@@ -184,7 +184,8 @@ reshuffling 98% of the time. Inside:
   answer 42% of the time, and y's site 61%. When only x moves (y keeps its place), transplanting
   x's site moves the answer 81% of the time. By layer 3 the answer sits at the answer position
   (99%).
-* **Not a coordinate.** x's rank is only partly readable at its site (0.69, against 0.59 from surface
+* **Not a coordinate, as far as the linear probe could see** (but see the alignment search below).
+  x's rank is only partly readable at its site (0.69, against 0.59 from surface
   counts and 0.20 from an untrained copy). Transplanting just the rank directions does nothing
   (2%, the same as random directions).
 * **Exploratory follow-up** (post hoc, `experiments/detector_followups/`):
@@ -194,6 +195,17 @@ reshuffling 98% of the time. Inside:
   * **Not one switch per letter.** Editing the direction for y alone works no better than editing
     an uninvolved letter's (18% vs 17%).
   * **Only partly readable.** The relation is 78% decodable there, below a surface baseline (96%).
+  * **Alignment search finds the coordinate the probe missed** (`das_plain.py`,
+    `das_plain_coordinate.py`).
+    * **Size.** One learned direction of the 64 carries 80% of the effect, against 82% for the
+      whole site and 2% for a random direction.
+    * **Order.** The direction holds x's rank in order, from +17.6 for the first letter to −19.2
+      for the last, beyond what surface counts give.
+    * **What it carries.** Transplanted from a reordered world, it carries x's place rather than
+      that world's relations (73–81% against 41–46%).
+    * **Placement.** Setting it places x at either end of the line 95–98% of the time, but into
+      the middle only 12%, or 46% with a second direction. The code is an on-demand number line,
+      sharp at the ends.
 
 **Three seeds.** Two more plain transformers were trained from different random starts (seeds 1
 and 2; reports in `results/seed1/` and `results/seed2/`). They reach 96% on held-out worlds, but
@@ -316,8 +328,11 @@ of the line.
 produce a picture of the line held ready for any question. It produced *on-demand composition*.
 When the question names x, the network assembles at x's position a distributed code for where x
 stands relative to the other letters, and computes the answer from it. That code is causally used
-and partly structured, but it is not a coordinate, not a per-letter list, and not linearly
-decodable well enough to pass the detector's fixed bar. So the verdict stays "something else".
+and partly structured, but it is not a per-letter list, and not linearly decodable well enough to
+pass the detector's fixed bar. So the verdict stays "something else". The follow-up alignment
+search shows what the code mostly is: a single number for x's place on the line, sharp at the ends
+and blurry in the middle, which the network compares with y's. The plain transformer imagines only
+the point it is asked about, not the line.
 
 **Across training runs the on-demand code is shared.** Three independently trained networks
 all decide at the asked-about letters, none forms a standing scene, and a single rotation lets

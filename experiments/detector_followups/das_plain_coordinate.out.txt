@@ -17,3 +17,9 @@
    answer changes as it should  0.951   0.571   0.122   0.587   0.966
    same, random direction       0.004   0.000   0.003   0.000   0.001
    overall 0.752   (random direction 0.002)
+
+4. The same placement with learned subspaces of more directions (mean code for rank r):
+   k     r=0     r=1     r=2     r=3     r=4     overall
+   1      0.951   0.571   0.122   0.587   0.966  0.752
+   2      0.976   0.594   0.458   0.573   0.981  0.802
+   4      0.977   0.595   0.470   0.579   0.982  0.805
