@@ -6,3 +6,11 @@ A. Move only x (held-out pairs whose answers differ). Answer follows the source:
   k=2   learned 0.846   random 0.017
   k=4   learned 0.848   random 0.034
   k=8   learned 0.850   random 0.036
+  k=16  learned 0.851   random 0.102
+
+B. New order of the same letters. Interchange accuracy under each hypothesis, each scored on
+   the pairs where that hypothesis's answer differs from the base answer:
+                                relations  coordinate
+  whole site                        0.407       0.726
+  learned on move-x, k=1            0.406       0.742
+  learned on move-x, k=8            0.460       0.810
