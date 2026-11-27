@@ -3,3 +3,4 @@ plain_seed2_steps8000_curriculum.pkl, x's site, layer 2
 A. Move only x (held-out pairs whose answers differ). Answer follows the source:
   whole site (64 dims)   0.619
   k=1   learned 0.604   random 0.154
+  k=2   learned 0.638   random 0.154
