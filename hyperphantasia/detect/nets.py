@@ -60,8 +60,10 @@ class NetConfig:
     # slot_layout="attention" only: also write each token's raw letter embedding into the slots,
     # so the question's letter and the slot contents start out in the same space.
     slot_raw_values: bool = False
-    # slot_layout="attention" only: a gated "side door" from the decoder straight to the encoded
-    # premises. Training opens it fully, then closes it; evaluation always runs with it shut.
+    # slot_layout="attention" only: a gated "side door". The encoded premises sit in the decoder
+    # sequence between the slots and the question, and attention to them is scaled by a gate.
+    # Fully open, the decoder is the no-bottleneck control plus slots; shut, the premises are
+    # invisible and only the slots carry them. Training closes it; evaluation runs it shut.
     slot_side_door: bool = False
 
     @property
@@ -142,12 +144,12 @@ def init(cfg: NetConfig, seed: int = 0):
             n_enc = cfg.prem_len + (0 if getattr(cfg, "slot_layout", "free") == "anchored" else cfg.k_slots)
             p["pos_enc"] = jax.random.normal(ks[2], (n_enc, cfg.d)) * 0.5
         dec = cfg.k_slots + (0 if ids else 4 * (cfg.train_queries if cfg.encoding == "slotted" else 1))
+        if getattr(cfg, "slot_side_door", False):
+            dec += cfg.prem_len
         p["pos_dec"] = jax.random.normal(ks[4], (dec, cfg.d)) * 0.5
         p["enc"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[3], cfg.enc_layers)]
         if getattr(cfg, "slot_layout", "free") == "attention":
             p["sa"] = _slot_attention_params(ks[8], cfg.d)
-            if getattr(cfg, "slot_side_door", False):
-                p["side"] = [_cross_params(k, cfg.d) for k in jax.random.split(ks[7], cfg.layers)]
             p["slots0"] = jax.random.normal(ks[9], (cfg.k_slots, cfg.d)) * 0.5
         p["blocks"] = [_block_params(k, cfg.d) for k in jax.random.split(ks[5], cfg.layers)]
     return p
@@ -187,20 +189,27 @@ def _trunk(params, tokens, cfg: NetConfig, patch_layer: int = -1, patch_pos=None
             for bp in params["enc"]:
                 e = _block(bp, e, ebias, cfg.heads)
             slots = e[:, jnp.asarray(_anchors(cfg))] if anchored else e[:, cfg.prem_len:]
-        if ids:  # slots carry their own position; question tokens carry role tags
+        door = competing and getattr(cfg, "slot_side_door", False)
+        if door:  # [slots, encoded premises (gated), questions]
+            h = jnp.concatenate([slots, e, embed(query)], axis=1)
+            h = h + params["pos_dec"][None, :h.shape[1]]
+            K, P = cfg.k_slots, cfg.prem_len
+            ok = jnp.concatenate([jnp.ones(slots.shape[:2], bool), keys, jnp.ones(query.shape[:2], bool)], axis=1)
+            gate = jnp.where(side > 0, jnp.log(jnp.maximum(side, 1e-30)), -1e9)  # shut => weight exactly 0
+            is_prem = jnp.zeros(h.shape[1]).at[K:K + P].set(1.0)
+            bias = _bias(ok) + gate * is_prem[None, None, :]
+        elif ids:  # slots carry their own position; question tokens carry role tags
             h = jnp.concatenate([slots + params["pos_dec"][None], embed(query)], axis=1)
+            bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
         else:
             h = jnp.concatenate([slots, embed(query)], axis=1)
             h = h + params["pos_dec"][None, :h.shape[1]]
-        bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
+            bias = _bias(jnp.ones(h.shape[:2], dtype=bool))
     if patch_layer == 0:
         h = _patch(h, patch_pos, patch_vals, proj)
     resid = [h]
-    door = cfg.kind == "slots" and getattr(cfg, "slot_side_door", False)
     for i, bp in enumerate(params["blocks"]):
         h = _block(bp, h, bias, cfg.heads)
-        if door:  # contributes exactly nothing when side == 0
-            h = h + side * _cross(params["side"][i], h, e, keys, cfg.heads)
         if patch_layer == i + 1:
             h = _patch(h, patch_pos, patch_vals, proj)
         resid.append(h)
@@ -235,24 +244,6 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
                 rows += [(W.QMARK, 5, 0), (x, 6, 0), (y, 7, 0), (W.ANS, 8, 0)]
         out[i, length - len(rows):] = rows
     return out
-
-
-def _cross_params(key, d):
-    k = jax.random.split(key, 3)
-    return {"ln": (jnp.ones(d), jnp.zeros(d)), "ln_kv": (jnp.ones(d), jnp.zeros(d)), "wq": _dense(k[0], d, d),
-            "wkv": _dense(k[1], d, 2 * d), "wo": _dense(k[2], d, d) * 0.5}
-
-
-def _cross(p, h, e, ok, heads):
-    """Multi-head cross-attention from decoder states h to encoder outputs e (padding masked)."""
-    B, L, d = h.shape
-    q = _ln(h, p["ln"]) @ p["wq"]
-    k, v = jnp.split(_ln(e, p["ln_kv"]) @ p["wkv"], 2, axis=-1)  # normalised, like self-attention
-    split = lambda t: t.reshape(B, t.shape[1], heads, d // heads).transpose(0, 2, 1, 3)
-    q, k, v = split(q), split(k), split(v)
-    bias = jnp.where(ok[:, None, None, :], 0.0, -1e9)
-    att = jax.nn.softmax(q @ k.transpose(0, 1, 3, 2) / math.sqrt(d // heads) + bias, axis=-1)
-    return (att @ v).transpose(0, 2, 1, 3).reshape(B, L, d) @ p["wo"]
 
 
 def side_door_config(**kw) -> NetConfig:
@@ -359,6 +350,8 @@ def encode_train(cfg: NetConfig, problems, rng):
             toks = np.concatenate([_slotted(problems, cfg, True, [[] for _ in problems]),
                                    _slotted(problems, cfg, False, qs)], axis=1)
             offset = cfg.prem_len - cfg.k_slots
+            if getattr(cfg, "slot_side_door", False):
+                offset -= cfg.prem_len  # the encoded premises are decoder positions too
         L = toks.shape[1] - offset
         y = np.zeros((len(problems), L), dtype=np.int32)
         mask = np.zeros((len(problems), L), dtype=np.float32)
@@ -410,6 +403,9 @@ def roles(cfg: NetConfig) -> dict[str, list[int]]:
         L = cfg.seq_len
         return {"scene": [L - 4], "X": [L - 3], "Y": [L - 2], "ANS": [L - 1]}
     K = cfg.k_slots
+    if getattr(cfg, "slot_side_door", False):
+        K += cfg.prem_len  # questions come after the slots and the (gated) encoded premises
+        return {"scene": list(range(cfg.k_slots)), "X": [K + 1], "Y": [K + 2], "ANS": [K + 3]}
     return {"scene": list(range(K)), "X": [K + 1], "Y": [K + 2], "ANS": [K + 3]}
 
 
