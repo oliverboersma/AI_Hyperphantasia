@@ -65,10 +65,19 @@ class NetConfig:
     # Fully open, the decoder is the no-bottleneck control plus slots; shut, the premises are
     # invisible and only the slots carry them. Training closes it; evaluation runs it shut.
     slot_side_door: bool = False
+    # Fraction of training questions that ask "is x at position k?" instead of "is x left of y?".
+    # Position questions need x's place in the whole line. Adds 8 tokens (a marker, digits 0-6).
+    position_questions: float = 0.0
 
     @property
     def vocab(self) -> int:
-        return W.BASE_VOCAB + (self.k_slots if self.kind == "slots" else 0)
+        extra = 8 if getattr(self, "position_questions", 0.0) > 0 else 0
+        return W.BASE_VOCAB + (self.k_slots if self.kind == "slots" else 0) + extra
+
+    def position_tokens(self) -> tuple[int, int]:
+        """(marker id, id of digit 0) for position questions."""
+        base = W.BASE_VOCAB + (self.k_slots if self.kind == "slots" else 0)
+        return base, base + 1
 
 
 # ------------------------------------------------------------------- blocks
@@ -246,6 +255,24 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
     return out
 
 
+def position_accuracy(params, cfg, problems, side: float = 0.0) -> float:
+    """Accuracy on balanced "is x at position k?" questions (networks trained with them)."""
+    rng = np.random.default_rng(7)
+    qs, labels = [], []
+    for p in problems:
+        x = int(rng.choice(p.order))
+        k = p.rank[x] if rng.random() < 0.5 else int(rng.choice([r for r in range(p.n) if r != p.rank[x]]))
+        qs.append([("pos", x, k)])
+        labels.append(int(p.rank[x] == k))
+    if cfg.kind == "plain":
+        toks = _slotted(problems, cfg, True, qs)
+    else:
+        toks = np.concatenate([_slotted(problems, cfg, True, [[] for _ in problems]),
+                               _slotted(problems, cfg, False, qs)], axis=1)
+    logits, _ = forward(params, jnp.asarray(toks), cfg, side=side)
+    return float((np.asarray(logits).argmax(-1) == np.array(labels)).mean())
+
+
 def side_door_config(**kw) -> NetConfig:
     """Slot Attention network trained with a side door that is closed by the end of training."""
     return NetConfig(kind="slots", slot_layout="attention", k_slots=W.MAX_N - 1, slot_side_door=True, **kw)
@@ -329,8 +356,12 @@ def _slotted(problems, cfg: NetConfig, premises: bool, queries) -> np.ndarray:
             if anchored:
                 out[i, [4 + 4 * k for k in range(n_slots)]] = W.BASE_VOCAB + np.arange(n_slots)
             k = 1 + stride * n_slots
-        for x, y in queries[i]:
-            out[i, k:k + 4] = (W.QMARK, x, y, W.ANS)
+        for q in queries[i]:
+            if len(q) == 3:  # ("pos", x, k): is x at position k?
+                marker, digit0 = cfg.position_tokens()
+                out[i, k:k + 4] = (marker, q[1], digit0 + q[2], W.ANS)
+            else:
+                out[i, k:k + 4] = (W.QMARK, q[0], q[1], W.ANS)
             k += 4
     return out
 
@@ -343,6 +374,15 @@ def encode_train(cfg: NetConfig, problems, rng):
         pairs = [tuple(int(v) for v in rng.choice(p.order, size=2, replace=False)) for _ in range(q - 1)]
         extra.append(pairs)
     if cfg.encoding == "slotted":
+        mix = getattr(cfg, "position_questions", 0.0)
+        if mix > 0:  # replace some questions with balanced "is x at position k?" questions
+            for i, p in enumerate(problems):
+                for j in range(len(extra[i])):
+                    if rng.random() < mix:
+                        x = int(rng.choice(p.order))
+                        k = p.rank[x] if rng.random() < 0.5 else int(rng.choice(
+                            [r for r in range(p.n) if r != p.rank[x]]))
+                        extra[i][j] = ("pos", x, k)
         qs = [[p.query] + e for p, e in zip(problems, extra)]
         if cfg.kind == "plain":
             toks, offset = _slotted(problems, cfg, True, qs), 0
@@ -358,8 +398,9 @@ def encode_train(cfg: NetConfig, problems, rng):
         start = L - 4 * q
         for i, p in enumerate(problems):
             r = p.rank
-            for j, (a, b) in enumerate(qs[i]):
-                y[i, start + 4 * j + 3], mask[i, start + 4 * j + 3] = int(r[a] < r[b]), 1.0
+            for j, q in enumerate(qs[i]):
+                ans = int(r[q[1]] == q[2]) if len(q) == 3 else int(r[q[0]] < r[q[1]])
+                y[i, start + 4 * j + 3], mask[i, start + 4 * j + 3] = ans, 1.0
         return toks, y, mask
     if cfg.kind == "plain":  # no positions are used, so the shortest padding will do
         toks = _ids(problems, 1 + 3 * (cfg.max_train_n - 1) + 4 * q, True, True, extra)
@@ -500,6 +541,8 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             if verbose:
                 extra = (f"  side door {side:.2f} (val acc with door at that opening "
                          f"{accuracy(params, cfg, val, side):.3f})") if getattr(cfg, "slot_side_door", False) else ""
+                if getattr(cfg, "position_questions", 0.0) > 0:
+                    extra += f"  position-question acc {position_accuracy(params, cfg, val[:1000]):.3f}"
                 print(f"  [{cfg.kind}] step {s:>5}  loss {float(loss):.4f}  val acc {acc:.3f}{extra}", flush=True)
             if checkpoint:
                 Path(checkpoint).parent.mkdir(parents=True, exist_ok=True)
@@ -529,7 +572,7 @@ def load(path: Path):
         object.__setattr__(cfg, "max_train_n", 6)
     for name, default in (("train_queries", 1), ("max_train_n", 6), ("enc_bidirectional", False),
                           ("slot_layout", "free"), ("slot_iters", 3), ("slot_raw_values", False),
-                          ("slot_side_door", False)):
+                          ("slot_side_door", False), ("position_questions", 0.0)):
         if name not in cfg.__dict__:
             object.__setattr__(cfg, name, default)
     return cfg, jax.tree_util.tree_map(jnp.asarray, blob["params"]), blob["log"]
