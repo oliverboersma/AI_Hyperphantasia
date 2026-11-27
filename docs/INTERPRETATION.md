@@ -133,6 +133,39 @@ Each of these would test the account, and most are cheap to run here:
    description, an LLM should decide at the question tokens. With chain-of-thought, the written chain
    should act as the standing scene, and editing it should change the answer.
 
+## Pre-registered test: access × question type
+
+This section was written before the runs it describes.
+
+**A refinement of the account.** In a transformer, recomputing per question costs no extra time:
+every position has the full depth, and the question tokens can always re-read the premises. So
+"many questions" alone creates no pressure for a standing scene. What should matter is:
+
+* **Access:** can the question still see the premises?
+* **Demand:** does the question need a *global* fact (x's place in the whole line) or only a local
+  relation (x versus y)?
+
+The bottleneck network showed that removing access with only local questions produces a compressed
+memory, not a scene.
+
+**Design.** Train two networks on a mix of questions. Half are "is x left of y?"; half are "is x at
+position k?", which needs x's place in the whole line. Evaluate with the usual detector on
+left-of questions.
+
+| | Local questions only (done) | Mixed with position questions (new) |
+|---|---|---|
+| Question sees the premises (plain transformer) | on-demand, not a coordinate | Prediction A: still no standing scene before the question; the code at x's site becomes coordinate-like (rank readable well above surface counts, rank directions causal) |
+| Premises only through slots (side-door bottleneck) | compressed memory, not a scene | Prediction B: **the slots become a scene**: rank readable from the slots well above surface counts (above 0.8), and transplanting the slots carries the answer |
+
+**How the result would bear on the account.**
+
+* **B holds:** the account survives, refined. A scene forms when access is removed *and* the
+  questions need global facts.
+* **B fails** (the slots stay a non-scene memory even when position questions must be answered from
+  them): the account is wrong about what makes a scene pay, at least for networks this size.
+* **A fails** (a standing scene appears in the plain transformer): access does not matter the way
+  the account says.
+
 ## What could make this wrong
 
 * **Hyperparameters.** The learning rate, initialisation and batch size were tuned for the plain
