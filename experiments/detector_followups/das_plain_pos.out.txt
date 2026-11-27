@@ -42,3 +42,5 @@ E. Placement: set x's code to its mean for rank r (cases where the answer must c
    left-of-learned, k=2   no at its real place  1.000   0.704   0.693   0.708   1.000  0.821
    position-learned, k=2  yes at r              1.000   0.496   0.587   0.506   0.997  0.717
    position-learned, k=2  no at its real place  1.000   0.706   0.710   0.714   1.000  0.826
+   random direction       yes at r              0.000   0.009   0.014   0.005   0.001  0.006
+   random direction       no at its real place  0.015   0.005   0.004   0.006   0.011  0.008

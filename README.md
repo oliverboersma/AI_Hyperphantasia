@@ -194,7 +194,9 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   task from scratch, in four slot designs. A side door, open early in training and then shut, let
   one learn (95%). With left-of questions only, its slots hold a compressed memory rather than a
   scene. A **pre-registered test** then added global questions ("is x at position k?"):
-  * **Plain transformer:** still forms no standing scene.
+  * **Plain transformer:** still forms no standing scene. It still builds only x's point, and the
+    same number serves both kinds of question. Setting the number learned from left-of questions
+    alone makes it answer "x is at position 0".
   * **Bottleneck:** a linear readout still finds no scene in its slots, so the prediction failed as
     registered. But a non-linear probe reads positions from them at 83% (raw premises: 35%). Cutting
     off access and asking for global facts does create a standing scene, in a non-linear code.

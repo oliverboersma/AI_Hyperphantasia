@@ -77,11 +77,17 @@ runs" hold beyond one run per design.
   **Seeds 1 and 2: done.** Both hold a coordinate too. Their main directions resolve less of the line:
   seed 1 both ends, seed 2 one end. Those can be read from surface counts without composing, so
   only seed 0's main direction goes beyond them. The order matches the composition scores.
+
+  **Position-question network: done** (`das_plain_pos.py`). One number line serves both question
+  types: the directions used for each nearly coincide, and the left-of-learned one answers position
+  questions. The expected change did not happen. The main direction still only marks the ends; the
+  middle lives on a second, weaker axis.
+
   Next:
-  * Run the same scripts on the network trained with position questions, which should push the
-    coordinate to resolve the middle.
-  * Find where seed 0 gets its finer middle information, perhaps the stated premises read at y's
-    site.
+  * **The middle's source.** Find where the networks get the finer middle information that their
+    coordinates lack, perhaps the stated premises read at y's site (a transplant at y's site, and
+    patching the premise tokens).
+  * **Seeds for the position network.** Only one was trained.
 * **Candidate variables.** Test "rank of x", "letters left of x", and "distance to the nearest end".
 
 **Settles.** What exactly the plain transformer computes when it is asked, which is so far only

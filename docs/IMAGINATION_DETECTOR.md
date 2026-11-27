@@ -356,8 +356,15 @@ run to run (73–90%).
 `results/access_x_demand/`). Both networks were trained on a mix of left-of and "is x at position
 k?" questions, and learned both (5-letter worlds: plain 92.5%, bottleneck 85%).
 
-* **Plain transformer:** still no standing scene (scene-site transplant 4%, at baseline). Its code at
-  x did not become a coordinate (rank 58–68% vs surface 59%; rank directions not causal).
+* **Plain transformer:** still no standing scene (scene-site transplant 4%, at baseline). To the
+  linear tools, its code at x did not become a coordinate (rank 58–68% vs surface 59%; rank
+  directions not causal).
+  * **Alignment search** (`das_plain_pos.py`) finds the same kind of on-demand coordinate as in the
+    left-of-only networks, and one number line serves both question types. The directions used for
+    left-of and for position questions nearly coincide (overlap 0.89–0.93). Setting the one learned
+    from left-of questions alone makes "is x at position 0?" come out yes 98–100% of the time.
+  * **The middle.** Its main direction still only marks the two ends, which surface counts give.
+    The middle lives on a second, weaker axis.
 * **Bottleneck:** the slots carry the answer (87%), but rank reads linearly at only 51%, so the
   pre-registered prediction that the slots become a linearly readable scene **failed**.
 * **Exploratory:** an MLP probe reads rank from the slots at 0.83. That compares with 0.66 for the

@@ -403,6 +403,56 @@ part, which end a letter is at, can be read straight off the premises, and every
 least some of it. The middle needs real composition, and the seeds differ in how much of it they
 put into the coordinate. They also differ in how well they compose overall.
 
+### Trained with position questions
+
+`das_plain_pos.py`, on the plain transformer trained on a mix of left-of and "is x at position k?"
+questions (the network of the pre-registered test). Questions come second, after a dummy left-of
+question, as in training. The site is x in that question, at layer 2. Position questions need x's
+place in the whole line, so the expectation was a main direction that resolves the middle.
+
+| | |
+|---|---|
+| Left-of, move only x: whole site / 1 learned direction / 2 / 8 | 0.86 / 0.77 / 0.86 / 0.87 (random 1 direction: 0.06) |
+| Left-of, reordered world: relations / coordinate (whole site) | 0.48 / **0.79** |
+| Position questions, source moves x: whole site | 0.75 |
+| … 1 direction learned on **left-of only** / on position questions / random | **0.59** / 0.59 / 0.08 |
+| … 2 directions learned on **left-of only** / on position questions / random | **0.74** / 0.75 / 0.08 |
+| Overlap of the left-of-learned and position-learned subspaces, 1 / 2 dims (random) | **0.89** / **0.93** (0.003 / 0.07) |
+| Main direction, mean at ranks 0 to 4 (left-of site) | +11.9, −3.1, −2.9, −3.0, −15.4 |
+| Same, at the position-question site | +12.0, −3.1, −2.8, −2.9, −15.3 |
+| Its correlation with rank beyond surface counts | 0.01 |
+
+Placement, with x's code set to its mean for rank r, on cases where the answer must change:
+
+| | r = 0 | 1 | 2 | 3 | 4 | overall |
+|---|---|---|---|---|---|---|
+| Left-of, 1 left-of-learned direction | 0.98 | 0.37 | 0.59 | 0.58 | 0.94 | 0.77 |
+| Left-of, 2 directions | 1.00 | 0.56 | 0.61 | 0.53 | 1.00 | 0.82 |
+| "Is x at position r?" becomes yes, 1 left-of-learned direction | 0.98 | 0.30 | 0.47 | 0.30 | 0.69 | 0.55 |
+| … 2 left-of-learned directions | 1.00 | 0.47 | 0.59 | 0.48 | 1.00 | 0.71 |
+| "Is x at its real position?" becomes no, 2 left-of-learned directions | 1.00 | 0.70 | 0.69 | 0.71 | 1.00 | 0.82 |
+| Either question, random direction | 0.00 | 0.01 | 0.01 | 0.01 | 0.01 | 0.01 |
+
+The subspace learned on position questions gives the same placement (0.72 and 0.83).
+
+* **One number line for both kinds of question.** The directions the network uses for "is x left
+  of y?" and for "is x at position k?" nearly coincide (overlap 0.89 to 0.93). Each works on the
+  other's questions as well as on its own. Setting the number learned from left-of questions alone
+  makes the network say x is at position 0 every time, and no longer at its real position.
+* **x's code does not depend on the question.** It takes the same values whichever question is
+  being asked, although x's site can see the question's first token.
+* **The expected change did not happen.** The main direction does not resolve the middle. It marks
+  the two ends, as seed 1's does, and carries nothing beyond surface counts (0.01). The middle sits
+  in a second direction. With it, placement into the middle reaches about 0.5 to 0.6 for both
+  question types, against 0.3 to 0.47 with the main direction alone for position questions.
+* **Prediction A, revisited.** It said x's code would become coordinate-like, with rank readable
+  well above surface counts. It is a causal coordinate, shared across question types, but its main
+  axis is a surface-level end detector. The composed part is a separate, weaker axis.
+
+**Reading.** Asking global questions did not make the network build the line. It still builds
+only x's point, on demand, and then reads that one point for whatever is asked. The cheap part
+(which end) and the composed part (where in the middle) live on separate axes.
+
 **Limits.** Setting a mean value is a blunt intervention. Seed 0 answers middle comparisons almost
 perfectly, though its coordinate is blurry there, so it must get finer middle information from
 somewhere else. That may come straight from the stated premises at y's site.
