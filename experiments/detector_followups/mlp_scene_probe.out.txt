@@ -1,0 +1,2 @@
+MLP probe for each letter's rank (chance 0.20; held-out problems)
+  bottleneck, mixed questions  trained slots    0.833
