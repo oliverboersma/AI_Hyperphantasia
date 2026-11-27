@@ -1,0 +1,6 @@
+plain, mixed questions
+   second question 'is x left of y?'        rank of x readable at x's token, layers 0-4: 0.19  0.17  0.59  0.70  0.71
+   second question 'is x at position k?'    rank of x readable at x's token, layers 0-4: 0.19  0.17  0.58  0.70  0.71
+bottleneck, mixed questions (door shut)
+   second question 'is x left of y?'        rank of x readable at x's token, layers 0-4: 0.18  0.29  0.35  0.45  0.44
+   second question 'is x at position k?'    rank of x readable at x's token, layers 0-4: 0.18  0.30  0.37  0.44  0.45
