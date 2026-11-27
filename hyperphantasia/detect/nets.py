@@ -256,13 +256,17 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
 
 
 def position_accuracy(params, cfg, problems, side: float = 0.0) -> float:
-    """Accuracy on balanced "is x at position k?" questions (networks trained with them)."""
+    """Accuracy on balanced "is x at position k?" questions (networks trained with them).
+
+    As in training, the position question is the second question in the sequence; the logits at the
+    last position are its answer.
+    """
     rng = np.random.default_rng(7)
     qs, labels = [], []
     for p in problems:
         x = int(rng.choice(p.order))
         k = p.rank[x] if rng.random() < 0.5 else int(rng.choice([r for r in range(p.n) if r != p.rank[x]]))
-        qs.append([("pos", x, k)])
+        qs.append([p.query, ("pos", x, k)])  # training only puts position questions after the first
         labels.append(int(p.rank[x] == k))
     if cfg.kind == "plain":
         toks = _slotted(problems, cfg, True, qs)
