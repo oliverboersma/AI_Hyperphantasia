@@ -5,3 +5,14 @@ A. Left-of, move only x (held-out pairs whose answers differ). Answer follows th
   k=1   learned 0.768   random 0.059
   k=2   learned 0.861   random 0.063
   k=4   learned 0.861   random 0.098
+  k=8   learned 0.871   random 0.187
+
+B. Left-of, reordered world. Each hypothesis scored where its answer differs from the base:
+                              relations  coordinate
+  whole site                      0.476       0.785
+  learned (left-of), k=1          0.437       0.709
+  learned (left-of), k=8          0.494       0.815
+
+C. Position questions ('is x at position k?'); the source world puts x elsewhere.
+   Answer follows the source:
+  whole site                              0.753
