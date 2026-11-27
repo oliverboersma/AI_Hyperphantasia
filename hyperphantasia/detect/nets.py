@@ -450,7 +450,8 @@ def _door(s: int, steps: int) -> float:
 
 def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3, seed: int = 0,
           log_every: int = 500, target: float = 0.995, verbose: bool = True,
-          checkpoint: Path | None = None, curriculum: bool = False):
+          checkpoint: Path | None = None, curriculum: bool = False, init_params=None,
+          force_side: float | None = None):
     """Train on answers only. With ``checkpoint``, progress is saved and resumed.
 
     By default every batch mixes worlds of 2 to ``max_train_n`` letters.
@@ -459,7 +460,7 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
     a position-bound shortcut; with randomly slotted premises it cannot.
     """
     rng = np.random.default_rng(seed)
-    params = init(cfg, seed)
+    params = init(cfg, seed) if init_params is None else init_params  # init_params: continue training
     zeros = jax.tree_util.tree_map(jnp.zeros_like, params)
     opt = (0, zeros, zeros)
     val = W.batch(np.random.default_rng(seed + 1000), 2000, ns=tuple(range(3, cfg.max_train_n + 1)))
@@ -489,6 +490,8 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             if cfg.kind == "slots":
                 y, mask = y[:, cfg.prem_len - cfg.k_slots:], mask[:, cfg.prem_len - cfg.k_slots:]
         side = _door(s, steps) if getattr(cfg, "slot_side_door", False) else 0.0
+        if force_side is not None:  # e.g. 0.0 to keep the side door shut throughout
+            side = force_side
         params, opt, loss = _step(params, opt, jnp.asarray(toks), jnp.asarray(y), jnp.asarray(mask),
                                   cur_lr, cfg, side)
         if s % log_every == 0 or s == steps:

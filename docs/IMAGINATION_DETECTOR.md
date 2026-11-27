@@ -261,6 +261,28 @@ until step 1250, 0.677 at 1500, 0.32 at 1750 and 0.21 at 2000. The machinery wor
 learning is the bottleneck itself: having to compress the premises into a few vectors before the
 question is known.
 
+**A closing side door breaks the deadlock** (`side_door_config()`; log in
+`experiments/detector_followups/side_door_training.out.txt`). The Slot Attention network was given
+a gated route from the question straight to the encoded premises. It was fully open for the first
+40% of training, closed linearly until 80%, then shut. Accuracy with the door shut is the
+bottleneck's own accuracy.
+
+| Steps | Door opening | Accuracy, door at that opening | Accuracy, door shut |
+|---|---|---|---|
+| 4,500 | 1.00 | 85% | 49% |
+| 7,000 | 0.54 | 96% | 51% |
+| 9,500 | 0.02 | 96% | 50% |
+| 10,000 | shut | 50% | 50% |
+| 11,000 | shut | 60% | 60% |
+| 12,000 | shut | 77% | 77% |
+
+Nothing moved into the slots while the door was closing: the network kept relying on it and
+collapsed to chance once it shut. But then, through the slots alone, it began to learn, going from
+50% to 77% in 2,000 steps, where every bottleneck network trained from scratch stayed at chance (one
+of them for 20,000 steps). The door did not transfer knowledge. It broke the chicken-and-egg
+problem: while it was open, the decoder learned to read premise features, and once a reader
+existed, the slots could be shaped to feed it. Training is being continued with the door shut.
+
 ## 7. What it means
 
 **In the learned mechanism, there is no standing mental model of the scene.** Training did not
