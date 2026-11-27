@@ -281,7 +281,34 @@ collapsed to chance once it shut. But then, through the slots alone, it began to
 50% to 77% in 2,000 steps, where every bottleneck network trained from scratch stayed at chance (one
 of them for 20,000 steps). The door did not transfer knowledge. It broke the chicken-and-egg
 problem: while it was open, the decoder learned to read premise features, and once a reader
-existed, the slots could be shaped to feed it. Training is being continued with the door shut.
+existed, the slots could be shaped to feed it. Continuing for 6,000 more steps with the door shut
+(`continue_side_door_shut.py`) took it to 95% held-out accuracy: the first slot network to learn the
+task.
+
+**What the detector finds in it** (`results/side_door/`; slot probes in `slot_contents.py`):
+
+| | Plain transformer (seed 0) | Bottleneck network |
+|---|---|---|
+| 5-letter worlds / composition / stated pairs | 98.9% / 90.5% / 99.6% | 89.1% / 79.5% / 81% |
+| Transplant the scene site (before the question) | 1%, does nothing | **90%**, at the 89% ceiling its own accuracy sets |
+| Rank readable at the scene site (surface counts: 60%) | 37–41% | 57–58% |
+| Right neighbour of each letter readable at the slots | n/a | 41% (untrained copy: 30%) |
+| Where the decision forms | x/y sites, layer 2 | x/y sites, layer 1 |
+| Transplant only x's rank directions | 2% | 18% (random: 18%) |
+
+Under the fixed rule, composition at 79.5% makes the verdict "no imagination". The internals are
+more informative:
+
+* **The slots are a complete standing store.** Transplanting them carries the answer as far as the
+  network's own accuracy allows.
+* **It is not a readable scene.** Letter positions are no more linearly readable there than surface
+  counts make them.
+* **It is not a readable copy of the premises either.** Right neighbours read at only 41%.
+* **The comparison still happens at the question**, at the asked-about letters (layer 1), just as in
+  the plain transformer.
+
+Forcing a standing store produced a standing *memory* in a compressed code, not a standing *model*
+of the line.
 
 ## 7. What it means
 
@@ -299,14 +326,14 @@ evidence, in miniature, for the Platonic Representation Hypothesis: what each ru
 largely a rotated version of the same thing. How well that code supports composition varies from
 run to run (73–90%).
 
-**The architecture arm points the same way.** Four designs that force a standing scene through a
-slot bottleneck could not learn the task. The same encoder and decoder without the bottleneck
-learned it at the plain transformer's pace. So, on this task and budget, it is specifically
-"build the scene before the question" that gradient descent fails to discover, while "compose when
-asked" is found within about 1500 steps. That fits what all three plain transformers chose on
-their own. It is still a small-scale finding: CPU training, one seed per design, a few thousand
-steps. A design that makes a standing scene easier to learn, or a much larger budget, could
-change it.
+**The architecture arm points the same way.** Trained from scratch, four designs that force
+everything through a slot bottleneck could not learn the task, while the same encoder and decoder
+without the bottleneck learned at the plain transformer's pace. A side door that was open during
+early training and then shut broke that deadlock (95% held-out accuracy). Even then, the slots did
+not become a scene. They hold a compressed, sufficient memory of the premises, and the composing
+still happens when the question arrives. On this task, the architecture can force imagination's
+*storage*, but not its *form*. It is still a small-scale finding: CPU training, one seed per design,
+a few thousand steps.
 
 **What the instrument showed it can do.** It correctly separated a real scene, a surface cheat
 whose "scene" was only a copy of the premises, and a network that had learned a positional

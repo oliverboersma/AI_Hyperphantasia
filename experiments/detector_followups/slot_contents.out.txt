@@ -1,0 +1,4 @@
+probe accuracy on the slots (decoder layer 0), per letter, held-out:
+  trained    premise content (right neighbour): 0.41   scene content (rank): 0.58
+  untrained  premise content (right neighbour): 0.30   scene content (rank): 0.35
+chance: right neighbour about 0.20 (always guess 'none'), rank 0.20

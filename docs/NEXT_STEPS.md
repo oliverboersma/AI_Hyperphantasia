@@ -19,6 +19,12 @@ slots. Evaluation always runs with the gate shut, so it is a pure bottleneck net
 **Settles.** If it works, the detector can finally ask whether a scene the architecture forces is a
 real scene (decodable ranks, causally used), or only copies of the premises.
 
+**Status: done.** With the door shut the network reached 95%. Its slots carry everything the answer
+needs (90% transplant transfer), but neither positions nor premises are linearly readable from
+them, and composition still happens at the question. Next: a non-linear probe or learned rotation
+on the slots (item 4), and dense questions (item 5), which should be the case where a slot scene
+pays.
+
 ## 2. Compare forced scenes with on-demand codes
 
 Once item 1 yields a working network, fit a rotation (as in `rotation_transfer.py`) between its
