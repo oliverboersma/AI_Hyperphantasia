@@ -88,9 +88,10 @@ direction that orders the letters correlates with every "is L left of x?" relati
 
 Two older observations read differently now:
 
-* **Seed differences.** Seed 1's rank-probe directions were causal (83%), and its code looked like
-  nearness to an end. Seed 0's coordinate is also sharpest at the ends, so the seeds may differ
-  less than the probes suggested.
+* **Seed differences.** Seed 1's code looked like nearness to an end. The alignment search on all
+  three seeds confirms it and makes it precise. Every seed holds a coordinate. They differ in how
+  much of the line its main direction resolves: one end (seed 2), both ends (seed 1), or both ends
+  and a graded middle (seed 0).
 * **Shared codes.** The rotation transfer between seeds fits a shared coordinate well: a single
   ordered axis is the natural object for this computation, so independent runs converge on it.
 
@@ -366,9 +367,45 @@ of the pre-registered test: the left-of-only network already held a coordinate a
 the linear tools could not see. That puts the detector's fixed verdict, "something else", in
 context, though the verdict stands as registered.
 
-**Limits.** One seed. Setting a mean value is a blunt intervention. The network answers middle
-comparisons almost perfectly, so it must get finer middle information from somewhere else,
-possibly straight from the stated premises at y's site.
+### Three seeds
+
+The same two scripts on seeds 1 and 2 (`das_plain_seed{1,2}.out.txt`,
+`das_plain_coordinate_seed{1,2}.out.txt`), at the same site:
+
+| | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| Composition questions (from the battery) | 90.5% | 83% | 73% |
+| Move only x: whole site / 1 learned direction / 2 | 0.82 / 0.80 / 0.85 | 0.88 / 0.89 / 0.92 | 0.62 / 0.60 / 0.64 |
+| Reorder, whole site: relations / coordinate | 0.41 / **0.73** | 0.51 / **0.80** | 0.33 / **0.56** |
+| Reorder, 8 learned directions: relations / coordinate | 0.46 / **0.81** | 0.53 / **0.91** | 0.33 / **0.60** |
+| Main direction, mean value at ranks 0 to 4 | +17.6, +4.5, +0.5, −4.4, −19.2 | −16.9, +0.2, +0.3, +0.4, +19.9 | −3.6, −1.9, −1.7, −1.6, +10.6 |
+| Its correlation with rank beyond surface counts | **−0.57** | 0.02 | 0.02 |
+| Placement with 1 direction, r = 0 / 2 / 4 (overall) | 0.95 / 0.12 / 0.97 (0.75) | 1.00 / 0.70 / 1.00 (0.83) | 0.41 / 0.22 / 0.91 (0.49) |
+| Placement with 2 directions, r = 2 (overall) | 0.46 (0.80) | 0.86 (0.90) | 0.29 (0.54) |
+
+* **Robust: a low-dimensional coordinate.** In every seed, one or two directions carry the whole
+  site's effect, and a transplant carries x's place rather than the other world's relations.
+* **Not robust: how much of the line the main direction resolves.** Seed 2's marks only the last
+  letter. Seed 1's marks both ends and is flat in the middle. Seed 0's marks both ends and grades
+  the middle.
+* **The ends need no composing.** In every puzzle, the first letter is the only one never stated to
+  be right of anything, and the last the only one never stated to be left of anything
+  (`ends_from_counts.py`). So an end detector is a surface count. That is why seeds 1 and 2's main
+  directions carry nothing beyond surface counts (0.02), while seed 0's graded middle does (−0.57).
+* **The ranking matches composition.** One end, both ends, then both ends and a graded middle: in
+  the same order as the three seeds' composition scores (73%, 83%, 90.5%). The match is not exact
+  once a second direction is included. Seed 1's second direction places middle letters better than
+  seed 0's (86% vs 46%), although seed 1 composes less well overall.
+
+**Reading.** All three networks answer by turning the asked-about letter into a position on a line,
+built when the question names it. Training decides how much of that line gets built. The cheap
+part, which end a letter is at, can be read straight off the premises, and every seed builds at
+least some of it. The middle needs real composition, and the seeds differ in how much of it they
+put into the coordinate. They also differ in how well they compose overall.
+
+**Limits.** Setting a mean value is a blunt intervention. Seed 0 answers middle comparisons almost
+perfectly, though its coordinate is blurry there, so it must get finer middle information from
+somewhere else. That may come straight from the stated premises at y's site.
 
 ## What could make this wrong
 

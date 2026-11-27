@@ -73,9 +73,15 @@ runs" hold beyond one run per design.
   **Status: done for seed 0** (`das_plain.py`, `das_plain_coordinate.py`). The code is mostly one
   number, x's place on the line (one direction carries 80% of the site's 82%). It is a coordinate
   rather than a set of relations (73–81% against 41–46%), sharp at the ends and blurry in the middle.
-  Next: run the same scripts on seeds 1 and 2 (`python das_plain.py <checkpoint>`), and on the
-  network trained with position questions. Also find where the finer middle information comes from,
-  perhaps the stated premises read at y's site.
+
+  **Seeds 1 and 2: done.** Both hold a coordinate too. Their main directions resolve less of the line:
+  seed 1 both ends, seed 2 one end. Those can be read from surface counts without composing, so
+  only seed 0's main direction goes beyond them. The order matches the composition scores.
+  Next:
+  * Run the same scripts on the network trained with position questions, which should push the
+    coordinate to resolve the middle.
+  * Find where seed 0 gets its finer middle information, perhaps the stated premises read at y's
+    site.
 * **Candidate variables.** Test "rank of x", "letters left of x", and "distance to the nearest end".
 
 **Settles.** What exactly the plain transformer computes when it is asked, which is so far only

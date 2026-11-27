@@ -206,6 +206,16 @@ reshuffling 98% of the time. Inside:
     * **Placement.** Setting it places x at either end of the line 95–98% of the time, but into
       the middle only 12%, or 46% with a second direction. The code is an on-demand number line,
       sharp at the ends.
+    * **All three seeds.** Each holds such a coordinate, with one or two directions carrying the
+      site's effect, and with coordinate beating relations. They differ in how much of the line the
+      main direction resolves.
+      * Seed 2: one end only.
+      * Seed 1: both ends, flat in the middle.
+      * Seed 0: both ends plus a graded middle.
+
+      The ends can be read from surface counts alone: the first letter is always the only one never
+      stated to be right of anything. So only seed 0's main direction goes beyond surface counts.
+      The order matches the seeds' composition scores (73%, 83%, 90.5%).
 
 **Three seeds.** Two more plain transformers were trained from different random starts (seeds 1
 and 2; reports in `results/seed1/` and `results/seed2/`). They reach 96% on held-out worlds, but
@@ -228,7 +238,8 @@ the network got that puzzle wrong.
 * **Not robust: the form of the on-demand code.** In seed 1, a few rank-probe directions at x's site
   are causally decisive (83% against 12% for random ones). The rank they encode is no more readable
   than surface counts (59%), though, so seed 1 probably relies on "how close is x to an end"
-  information, which fits its weaker composition score.
+  information, which fits its weaker composition score. The later alignment search confirms this:
+  seed 1's main direction marks the two ends and is flat in the middle.
 
 **Plato's Key across seeds** (exploratory, `experiments/detector_followups/rotation_transfer.py`,
 adapted from Hazy Research's 2026 "Plato's Key"). For each pair of seeds, a rotation plus one

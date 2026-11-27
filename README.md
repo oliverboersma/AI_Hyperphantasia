@@ -182,6 +182,10 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   the ends and blurry in the middle, and the network compares it with y's place. One learned
   direction carries 80% of the effect, and setting it moves x to either end 95–98% of the time. The
   network imagines only the point it is asked about.
+  * **All three training runs build this number line.** They differ in how much of the line they
+    build: one end, both ends, or both ends plus a graded middle. The ends can be read from the
+    premises without composing anything. The more of the line a run builds, the better it composes
+    (73%, 83%, 90.5%).
 * **Across three training runs**, no network builds a standing scene, and a single rotation lets
   one run's on-demand code stand in for another's (91% transfer between seeds 0 and 1, against
   88% for the recipient's own state), in the spirit of Hazy Research's "Plato's Key". How well
