@@ -13,13 +13,16 @@ site. The share of answers that follow the source world is reported. If the midd
 premises read late, the premise transplant at layers 2 and 3, after x's coordinate is built, should
 carry the middle cases better than the ends.
 
-The source world's premises are written into the base world's premise slots (every 5-letter world
-has 4 premises), so both runs share one padding mask and a transplant of every position at any layer
+The source world's premises are written into the base world's premise slots (a world of n letters
+always has n - 1 premises), so both runs share one padding mask and a transplant of every position at any layer
 reproduces the source run exactly.
 
     python experiments/detector_followups/middle_source.py [checkpoint]
+
+Set N_LETTERS (default 5) to use worlds of another size.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -36,6 +39,8 @@ R = nets.roles(cfg)
 X, Y, ANS, Q = R["X"][0], R["Y"][0], R["ANS"][0], R["scene"][0]
 PREM = list(range(Q))  # BOS and the premise slots, everything before the question
 EYE = jnp.eye(cfg.d)
+N = int(os.environ.get("N_LETTERS", 5))  # letters per world
+ENDS = [0, N - 1]
 
 
 def encode_in_slots(src, base):
@@ -55,7 +60,7 @@ if __name__ == "__main__":
     rng = np.random.default_rng(5)
     base, src = [], []
     while len(base) < 8000:
-        p = W.sample(rng, 5)
+        p = W.sample(rng, N)
         s = W.rank_counterfactual(p, rng)
         if s is not None:
             base.append(p); src.append(s)
@@ -68,7 +73,7 @@ if __name__ == "__main__":
 
     rs_x = np.array([s.rank[s.query[0]] for s in src])
     ry = np.array([p.rank[p.query[1]] for p in base])
-    case = np.char.add(np.where(np.isin(rs_x, [0, 4]), "end, ", "middle, "),
+    case = np.char.add(np.where(np.isin(rs_x, ENDS), "end, ", "middle, "),
                        np.where(np.abs(rs_x - ry) == 1, "stated", "composed"))
     names = ("end, stated", "end, composed", "middle, stated", "middle, composed")
     print(f"{PATH.name}: {ok.sum()} of {len(base)} pairs answered correctly in both worlds")
@@ -90,15 +95,19 @@ if __name__ == "__main__":
             print(f"  {layer:<6} {name:<16}" + "".join(f"{follows[ok & (case == c)].mean():>18.3f}" for c in names),
                   flush=True)
 
-    # Plain accuracy on fresh 5-letter questions, by type (no transplants)
+    # Plain accuracy on fresh questions, by type (no transplants)
     rng = np.random.default_rng(77)
-    probs = [W.sample(rng, 5) for _ in range(20000)]
+    probs = [W.sample(rng, N) for _ in range(20000)]
     pred = np.asarray(nets.forward(params, jnp.asarray(nets.encode(cfg, probs)), cfg)[0]).argmax(-1)
     right = pred == W.labels(probs)
     rx = np.array([p.rank[p.query[0]] for p in probs]); ryy = np.array([p.rank[p.query[1]] for p in probs])
-    stated = np.abs(rx - ryy) == 1
-    end = np.isin(rx, [0, 4]) | np.isin(ryy, [0, 4])
-    print("\nAccuracy on fresh 5-letter questions (no transplant):")
-    for name, m in [("stated pair", stated), ("composed, a letter at an end", ~stated & end),
-                    ("composed, both letters in the middle (ranks 1 and 3)", ~stated & ~end)]:
-        print(f"  {name:<54} {right[m].mean():.3f}  ({int(m.sum())} questions)")
+    gap = np.abs(rx - ryy)
+    stated = gap == 1
+    end = np.isin(rx, ENDS) | np.isin(ryy, ENDS)
+    print(f"\nAccuracy on fresh {N}-letter questions (no transplant):")
+    rows = [("stated pair", stated), ("composed, a letter at an end", ~stated & end),
+            ("composed, both letters in the middle", ~stated & ~end)]
+    rows += [(f"  ... of which {g} apart", ~stated & ~end & (gap == g)) for g in range(2, N - 2)]
+    for name, m in rows:
+        if m.sum():
+            print(f"  {name:<40} {right[m].mean():.3f}  ({int(m.sum())} questions)")

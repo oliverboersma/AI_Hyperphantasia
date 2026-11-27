@@ -23,8 +23,11 @@ B. Coordinate or relation list? Source = the same letters in a new order. Transp
 C. What the learned subspace holds: linear readouts of x's rank and of "is L left of x?".
 
     python experiments/detector_followups/das_plain.py [checkpoint]
+
+Set N_LETTERS (default 5) to use worlds of another size.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -37,6 +40,7 @@ sys.path.insert(0, str(ROOT))
 from hyperphantasia.detect import nets, probes, world as W  # noqa: E402
 
 PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / ".cache/detect/plain_seed0_steps8000_curriculum.pkl"
+N = int(os.environ.get("N_LETTERS", 5))  # letters per world
 LAYER = 2  # the best x-site layer in seeds 0, 1 and 2 (results/seed*/imagination_report.md)
 cfg, params, _ = nets.load(PATH)
 POS = nets.roles(cfg)["X"][0]
@@ -74,7 +78,7 @@ def pairs(rng, size, kind):
     """(base, source, targets) where targets = {name: (answer, valid)}."""
     base, src = [], []
     while len(base) < size:
-        p = W.sample(rng, 5)
+        p = W.sample(rng, N)
         if kind == "move_x":
             s = W.rank_counterfactual(p, rng)
             if s is None:
@@ -134,7 +138,7 @@ def rand(k, seed):
 
 
 if __name__ == "__main__":
-    print(f"{PATH.name}, x's site, layer {LAYER}")
+    print(f"{PATH.name}, {N}-letter worlds, x's site, layer {LAYER}")
     print("\nA. Move only x (held-out pairs whose answers differ). Answer follows the source:")
     print(f"  whole site (64 dims)   {iia('move_x', EYE, 'relations'):.3f}")
     learned = {}
@@ -155,7 +159,7 @@ if __name__ == "__main__":
 
     print("\nC. Linear readouts at x's site (held-out accuracy)")
     rng = np.random.default_rng(41)
-    probs = [W.sample(rng, 5) for _ in range(8000)]
+    probs = [W.sample(rng, N) for _ in range(8000)]
     S = np.asarray(site(probs)[1])
     xr = np.array([p.rank[p.query[0]] for p in probs])
 
@@ -171,5 +175,5 @@ if __name__ == "__main__":
 
     for name, A in [("whole site (64)", S), ("learned k=4", S @ np.asarray(learned[4])),
                     ("learned k=8", S @ np.asarray(learned[8])), ("random k=8", S @ np.asarray(rand(8, 8)))]:
-        print(f"  {name:<16} rank of x (chance 0.20) {probes.fit(A, xr, 5).acc:.3f}   "
+        print(f"  {name:<16} rank of x (chance {1 / N:.2f}) {probes.fit(A, xr, N).acc:.3f}   "
               f"'is L left of x?' (chance 0.50) {membership(A):.3f}", flush=True)

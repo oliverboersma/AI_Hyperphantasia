@@ -39,16 +39,16 @@ if __name__ == "__main__":
 
     u = np.asarray(d.train(1, "move_x", "relations"))[:, 0]
     rng = np.random.default_rng(41)
-    probs = [W.sample(rng, 5) for _ in range(6000)]
+    probs = [W.sample(rng, d.N) for _ in range(6000)]
     toks, H = d.site(probs)
     H = np.asarray(H)
     xr = np.array([p.rank[p.query[0]] for p in probs])
     proj = H @ u
-    means = np.array([proj[xr == r].mean() for r in range(5)])
-    sds = np.array([proj[xr == r].std() for r in range(5)])
+    means = np.array([proj[xr == r].mean() for r in range(d.N)])
+    sds = np.array([proj[xr == r].std() for r in range(d.N)])
     rho = np.corrcoef(np.argsort(np.argsort(proj)), xr)[0, 1]
-    print("\n2. The learned direction, by x's rank (5-letter worlds):")
-    print("   rank   " + "  ".join(f"{r:>6}" for r in range(5)))
+    print(f"\n2. The learned direction, by x's rank ({d.N}-letter worlds):")
+    print("   rank   " + "  ".join(f"{r:>6}" for r in range(d.N)))
     print("   mean   " + "  ".join(f"{m:6.2f}" for m in means))
     print("   sd     " + "  ".join(f"{s:6.2f}" for s in sds))
     print(f"   rank correlation with x's rank: {rho:.3f}")
@@ -69,8 +69,8 @@ if __name__ == "__main__":
     def place(direction, levels):
         """Set x's coordinate along `direction` to levels[r]. Score 'answer == (r < rank(y))' on the
         cases where that differs from what the unpatched network says, i.e. the answer must change."""
-        hit, cnt = np.zeros(5), np.zeros(5)
-        for r in range(5):
+        hit, cnt = np.zeros(d.N), np.zeros(d.N)
+        for r in range(d.N):
             idx = np.where((yr != r) & (xr != r))[0]  # x actually moves, and r is not y's spot
             want = (r < yr[idx]).astype(int)
             idx, want = idx[want != unpatched[idx]], want[want != unpatched[idx]]
@@ -84,9 +84,9 @@ if __name__ == "__main__":
     per, tot, cnt = place(u, means)
     v = np.random.default_rng(3).normal(size=d.D); v /= np.linalg.norm(v)
     pv = H @ v
-    per_r, tot_r, _ = place(v, np.array([pv[xr == r].mean() for r in range(5)]))
+    per_r, tot_r, _ = place(v, np.array([pv[xr == r].mean() for r in range(d.N)]))
     print("\n3. Put x at rank r by setting the one number, on cases where that must change the answer:")
-    print("   r                           " + "  ".join(f"{r:>6}" for r in range(5)))
+    print("   r                           " + "  ".join(f"{r:>6}" for r in range(d.N)))
     print("   cases                       " + "  ".join(f"{int(c):>6}" for c in cnt))
     print("   answer changes as it should " + "  ".join(f"{a:6.3f}" for a in per))
     print("   same, random direction      " + "  ".join(f"{a:6.3f}" for a in per_r))
@@ -95,13 +95,13 @@ if __name__ == "__main__":
     # 4. Does the middle of the line live in more directions? Place with the learned k-dim subspaces,
     # setting x's whole k-dim code to its mean for rank r.
     print("\n4. The same placement with learned subspaces of more directions (mean code for rank r):")
-    print("   k     " + "  ".join(f"r={r:<4}" for r in range(5)) + "  overall")
+    print("   k     " + "  ".join(f"r={r:<4}" for r in range(d.N)) + "  overall")
     for k in (1, 2, 4):
         U = u[:, None] if k == 1 else np.asarray(d.train(k, "move_x", "relations"))
         Z = H @ U
-        M = np.stack([Z[xr == r].mean(0) for r in range(5)])
-        hit, cnt = np.zeros(5), np.zeros(5)
-        for r in range(5):
+        M = np.stack([Z[xr == r].mean(0) for r in range(d.N)])
+        hit, cnt = np.zeros(d.N), np.zeros(d.N)
+        for r in range(d.N):
             idx = np.where((yr != r) & (xr != r))[0]
             want = (r < yr[idx]).astype(int)
             idx, want = idx[want != unpatched[idx]], want[want != unpatched[idx]]

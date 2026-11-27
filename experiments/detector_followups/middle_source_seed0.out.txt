@@ -25,6 +25,7 @@ Share of answers that follow the source world after the transplant:
   3      everything                   1.000             1.000             1.000             1.000
 
 Accuracy on fresh 5-letter questions (no transplant):
-  stated pair                                            0.997  (7954 questions)
-  composed, a letter at an end                           0.999  (10033 questions)
-  composed, both letters in the middle (ranks 1 and 3)   0.902  (2013 questions)
+  stated pair                              0.997  (7954 questions)
+  composed, a letter at an end             0.999  (10033 questions)
+  composed, both letters in the middle     0.902  (2013 questions)
+    ... of which 2 apart                   0.902  (2013 questions)
