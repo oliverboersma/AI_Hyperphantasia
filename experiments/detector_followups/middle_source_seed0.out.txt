@@ -1,0 +1,30 @@
+plain_seed0_steps8000_curriculum.pkl: 7804 of 8000 pairs answered correctly in both worlds
+  where x lands in the source world, and whether its answer is stated or composed
+  pairs per case: end, stated 3891, end, composed 1782, middle, stated 1748, middle, composed 383
+  network accuracy on the source worlds, by case: end, stated 1.000, end, composed 0.998, middle, stated 0.996, middle, composed 0.901
+
+Share of answers that follow the source world after the transplant:
+  layer  transplant             end, stated     end, composed    middle, stated  middle, composed
+  1      x's site                     0.024             0.006             0.000             0.000
+  1      y's site                     0.072             0.010             0.000             0.000
+  1      x and y                      0.104             0.021             0.000             0.000
+  1      premises                     1.000             1.000             0.928             0.851
+  1      premises and x               1.000             1.000             0.956             0.903
+  1      everything                   1.000             1.000             1.000             1.000
+  2      x's site                     0.955             0.971             0.410             0.491
+  2      y's site                     0.503             0.086             0.360             0.013
+  2      x and y                      1.000             1.000             0.999             0.987
+  2      premises                     0.003             0.000             0.001             0.000
+  2      premises and x               0.946             0.966             0.388             0.449
+  2      everything                   1.000             1.000             1.000             1.000
+  3      x's site                     0.011             0.002             0.001             0.000
+  3      y's site                     0.000             0.000             0.001             0.000
+  3      x and y                      0.011             0.001             0.001             0.000
+  3      premises                     0.000             0.000             0.000             0.000
+  3      premises and x               0.011             0.001             0.001             0.000
+  3      everything                   1.000             1.000             1.000             1.000
+
+Accuracy on fresh 5-letter questions (no transplant):
+  stated pair                                            0.997  (7954 questions)
+  composed, a letter at an end                           0.999  (10033 questions)
+  composed, both letters in the middle (ranks 1 and 3)   0.902  (2013 questions)

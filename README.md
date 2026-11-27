@@ -186,6 +186,12 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
     build: one end, both ends, or both ends plus a graded middle. The ends can be read from the
     premises without composing anything. The more of the line a run builds, the better it composes
     (73%, 83%, 90.5%).
+  * **Two routes, and a gap.** The best run answers through two routes:
+    * the number line at x, for any question with a letter at an end;
+    * a lookup at y of the premise that names both letters, for stated pairs.
+
+    Those two answer 90% of the questions without composing anything. The rest, composed questions
+    about two middle letters, are where every run is weakest (90%, 75%, 69%).
 * **Across three training runs**, no network builds a standing scene, and a single rotation lets
   one run's on-demand code stand in for another's (91% transfer between seeds 0 and 1, against
   88% for the recipient's own state), in the spirit of Hazy Research's "Plato's Key". How well

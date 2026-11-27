@@ -216,6 +216,14 @@ reshuffling 98% of the time. Inside:
       The ends can be read from surface counts alone: the first letter is always the only one never
       stated to be right of anything. So only seed 0's main direction goes beyond surface counts.
       The order matches the seeds' composition scores (73%, 83%, 90.5%).
+    * **Two routes, and a gap** (`middle_source.py`):
+      * **The coordinate at x** carries every case where x lands at an end.
+      * **A stated-pair lookup at y's site** carries the answer only when a premise states it.
+      * **The gap.** Ends and stated pairs answer 90% of 5-letter questions without composing. The
+        rest, composed questions about two middle letters, are where every network is weakest
+        (90%, 75%, 69%).
+      * **Seeds 1 and 2 lack the lookup.** They are worse on stated pairs (87%, 86%) than on
+        composed questions with an end letter.
 
 **Three seeds.** Two more plain transformers were trained from different random starts (seeds 1
 and 2; reports in `results/seed1/` and `results/seed2/`). They reach 96% on held-out worlds, but

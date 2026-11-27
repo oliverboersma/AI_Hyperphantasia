@@ -453,9 +453,62 @@ The subspace learned on position questions gives the same placement (0.72 and 0.
 only x's point, on demand, and then reads that one point for whatever is asked. The cheap part
 (which end) and the composed part (where in the middle) live on separate axes.
 
-**Limits.** Setting a mean value is a blunt intervention. Seed 0 answers middle comparisons almost
-perfectly, though its coordinate is blurry there, so it must get finer middle information from
-somewhere else. That may come straight from the stated premises at y's site.
+**Limits.** Setting a mean value is a blunt intervention.
+
+### Where the middle comes from: two routes, and a gap
+
+The coordinates are blurry in the middle, yet seed 0 answers almost everything. `middle_source.py`
+asks which positions carry the deciding information. It uses "move only x" pairs answered correctly
+in both worlds, with the source premises written into the base world's slots, so that the padding
+masks match and transplanting every position reproduces the source run exactly. Pairs are split by
+where x lands in the source world, and by whether that world's answer is **stated** or must be
+**composed**. A stated answer is one where x and y are adjacent; the premises are exactly the
+adjacent pairs.
+
+Seed 0, transplants at layer 2. The table gives the share of answers that follow the source world:
+
+| Transplant | x at an end, stated | x at an end, composed | x in the middle, stated | x in the middle, composed |
+|---|---|---|---|---|
+| x's site | 0.96 | 0.97 | 0.41 | 0.49 |
+| y's site | 0.50 | 0.09 | 0.36 | 0.01 |
+| x and y | 1.00 | 1.00 | 1.00 | 0.99 |
+| the premises | 0.00 | 0.00 | 0.00 | 0.00 |
+
+Accuracy on fresh 5-letter questions, without transplants:
+
+| | seed 0 | seed 1 | seed 2 |
+|---|---|---|---|
+| Stated pair | 0.997 | 0.874 | 0.858 |
+| Composed, a letter at an end | 0.999 | 1.000 | 0.983 |
+| Composed, both letters in the middle (ranks 1 and 3) | **0.902** | **0.753** | **0.692** |
+
+* **Route 1: the coordinate at x.** It carries every case where x lands at an end, whether that
+  answer is stated or composed (0.96 to 0.97).
+* **Route 2: a stated-pair lookup at y.** y's site carries the answer only when a premise states it
+  (0.36 to 0.50 for stated cases, 0.01 to 0.09 for composed ones). With both letters known there,
+  it reads the premise that names them.
+* **Nothing is read late.** After layer 2, the premises no longer matter (0.00). Everything the
+  answer needs is at x's and y's sites by then.
+* **The gap.** A question with a letter at an end needs no composing: if x is first, the answer is
+  yes whatever y is. Ends and stated pairs together answer 90% of 5-letter questions without
+  combining premises at all. The rest are composed questions about two middle letters, which
+  neither route serves. There every network is at its worst (0.90, 0.75, 0.69). Seed 0's 90% fits
+  its graded middle (ranks 1 and 3 sit at +4.5 and −4.4, with spreads of about 4).
+* **Seeds 1 and 2 lack route 2.** They do worse on stated pairs (0.87, 0.86) than on composed
+  questions with an end letter (1.00, 0.98). Their transplant tables show the same: y's site
+  carries little.
+
+**Reading.** In 5-letter worlds most of the accuracy comes from two shortcuts the premises allow
+without composition: which end a letter is at, and which pairs are stated. Composition shows up
+only where it is unavoidable, in seed 0's graded middle, and there it is imperfect. Two
+consequences follow:
+
+* **The test bed rewards shortcuts.** Questions that need real composition are a tenth of
+  5-letter questions. Longer worlds, scored by question type, would test imagination much harder.
+* **The two "senses" are separate.** One builds a position for the letter asked about, the other
+  looks up a stated relation. They live at different places in the network, and the answer
+  combines them. That is a small mechanical version of the reasoning path's idea of several
+  channels that are bound together.
 
 ## What could make this wrong
 

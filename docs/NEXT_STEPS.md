@@ -83,10 +83,19 @@ runs" hold beyond one run per design.
   questions. The expected change did not happen. The main direction still only marks the ends; the
   middle lives on a second, weaker axis.
 
+
+  **The middle's source: done** (`middle_source.py`). Two routes:
+  * **The coordinate at x**, for any question with a letter at an end.
+  * **A stated-pair lookup at y's site**, for adjacent pairs.
+
+  Together they answer 90% of 5-letter questions without composing. The rest (composed, both
+  letters in the middle) are where every network is weakest: 90%, 75% and 69%.
+
   Next:
-  * **The middle's source.** Find where the networks get the finer middle information that their
-    coordinates lack, perhaps the stated premises read at y's site (a transplant at y's site, and
-    patching the premise tokens).
+  * **Score by question type in longer worlds** (item 5). In 5-letter worlds only a tenth of the
+    questions need real composition, so the test bed rewards shortcuts. 7- to 9-letter worlds, with
+    accuracy and the detector split into end, stated and composed-middle questions, would test
+    imagination much harder.
   * **Seeds for the position network.** Only one was trained.
 * **Candidate variables.** Test "rank of x", "letters left of x", and "distance to the nearest end".
 
