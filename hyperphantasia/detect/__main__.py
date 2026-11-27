@@ -55,7 +55,7 @@ def main(argv=None) -> int:
     ap.add_argument("--retrain", action="store_true")
     ap.add_argument("--cache", default=".cache/detect")
     ap.add_argument("--out", default="results")
-    ap.add_argument("--kinds", default="plain,slots")
+    ap.add_argument("--kinds", default="plain,slots", help="networks to train or load; 'none' to skip")
     ap.add_argument("--no-curriculum", action="store_true",
                     help="mix all world sizes from the start (default: small worlds first)")
     ap.add_argument("--also", action="append", default=[],
@@ -76,7 +76,7 @@ def main(argv=None) -> int:
         rows.append(report.to_json(ev, v))
 
     from . import nets
-    for kind in args.kinds.split(","):
+    for kind in [k for k in args.kinds.split(",") if k and k != "none"]:
         cfg = {"anchored": nets.anchored_config, "attention": nets.slot_attention_config,
                "side-door": nets.side_door_config}.get(
             kind, lambda: nets.NetConfig(kind=kind))()

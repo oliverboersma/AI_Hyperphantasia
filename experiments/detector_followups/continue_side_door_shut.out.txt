@@ -1,0 +1,13 @@
+  [slots] step   500  loss 0.2372  val acc 0.845  side door 0.00 (val acc with door at that opening 0.845)
+  [slots] step  1000  loss 0.1980  val acc 0.876  side door 0.00 (val acc with door at that opening 0.876)
+  [slots] step  1500  loss 0.1650  val acc 0.895  side door 0.00 (val acc with door at that opening 0.895)
+  [slots] step  2000  loss 0.1756  val acc 0.913  side door 0.00 (val acc with door at that opening 0.913)
+  [slots] step  2500  loss 0.1155  val acc 0.909  side door 0.00 (val acc with door at that opening 0.909)
+  [slots] step  3000  loss 0.1434  val acc 0.920  side door 0.00 (val acc with door at that opening 0.920)
+  [slots] step  3500  loss 0.1424  val acc 0.923  side door 0.00 (val acc with door at that opening 0.923)
+  [slots] step  4000  loss 0.0798  val acc 0.931  side door 0.00 (val acc with door at that opening 0.931)
+  [slots] step  4500  loss 0.1175  val acc 0.941  side door 0.00 (val acc with door at that opening 0.941)
+  [slots] step  5000  loss 0.0805  val acc 0.940  side door 0.00 (val acc with door at that opening 0.940)
+  [slots] step  5500  loss 0.0736  val acc 0.948  side door 0.00 (val acc with door at that opening 0.948)
+  [slots] step  6000  loss 0.0644  val acc 0.950  side door 0.00 (val acc with door at that opening 0.950)
+continued done in 1923 s
