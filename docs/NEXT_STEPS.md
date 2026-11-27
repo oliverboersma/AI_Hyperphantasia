@@ -11,8 +11,8 @@ the task. Four slot designs stayed at chance, while the same encoder and decoder
 bottleneck learned normally.
 
 **Plan: a closing side door.** Give the decoder a gated extra route straight to the encoded
-premises. The gate starts fully open, then closes gradually during training and stays shut for the
-last third. The network learns the task the easy way, then has to move what it knows into the
+premises. The gate is fully open for the first 40% of training, closes gradually until 80%, and stays shut
+for the last fifth. The network learns the task the easy way, then has to move what it knows into the
 slots. Evaluation always runs with the gate shut, so it is a pure bottleneck network.
 (`slot_side_door` in `hyperphantasia/detect/nets.py`; status in section 6 of the detector doc.)
 

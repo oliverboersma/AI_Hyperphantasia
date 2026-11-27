@@ -239,15 +239,15 @@ def _ids(problems, length: int, premises: bool, query: bool, extra=None) -> np.n
 
 def _cross_params(key, d):
     k = jax.random.split(key, 3)
-    return {"ln": (jnp.ones(d), jnp.zeros(d)), "wq": _dense(k[0], d, d), "wkv": _dense(k[1], d, 2 * d),
-            "wo": _dense(k[2], d, d) * 0.5}
+    return {"ln": (jnp.ones(d), jnp.zeros(d)), "ln_kv": (jnp.ones(d), jnp.zeros(d)), "wq": _dense(k[0], d, d),
+            "wkv": _dense(k[1], d, 2 * d), "wo": _dense(k[2], d, d) * 0.5}
 
 
 def _cross(p, h, e, ok, heads):
     """Multi-head cross-attention from decoder states h to encoder outputs e (padding masked)."""
     B, L, d = h.shape
     q = _ln(h, p["ln"]) @ p["wq"]
-    k, v = jnp.split(e @ p["wkv"], 2, axis=-1)
+    k, v = jnp.split(_ln(e, p["ln_kv"]) @ p["wkv"], 2, axis=-1)  # normalised, like self-attention
     split = lambda t: t.reshape(B, t.shape[1], heads, d // heads).transpose(0, 2, 1, 3)
     q, k, v = split(q), split(k), split(v)
     bias = jnp.where(ok[:, None, None, :], 0.0, -1e9)
@@ -442,14 +442,14 @@ def _step(params, opt, tokens, y, mask, lr, cfg, side=0.0):
     return params, (t, m, v), loss
 
 
-def accuracy(params, cfg, problems) -> float:
-    logits, _ = forward(params, jnp.asarray(encode(cfg, problems)), cfg)
+def accuracy(params, cfg, problems, side: float = 0.0) -> float:
+    logits, _ = forward(params, jnp.asarray(encode(cfg, problems)), cfg, side=side)
     return float((np.asarray(logits).argmax(-1) == W.labels(problems)).mean())
 
 
 def _door(s: int, steps: int) -> float:
-    """Side-door gate: open for the first 30% of training, closing linearly until 70%, then shut."""
-    return float(min(1.0, max(0.0, (0.7 - s / steps) / 0.4)))
+    """Side-door gate: open for the first 40% of training, closing linearly until 80%, then shut."""
+    return float(min(1.0, max(0.0, (0.8 - s / steps) / 0.4)))
 
 
 def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3, seed: int = 0,
@@ -499,7 +499,8 @@ def train(cfg: NetConfig, steps: int = 8000, batch: int = 256, lr: float = 2e-3,
             acc = accuracy(params, cfg, val)
             log.steps.append(s); log.loss.append(float(loss)); log.acc.append(acc)
             if verbose:
-                extra = f"  side door {side:.2f}" if getattr(cfg, "slot_side_door", False) else ""
+                extra = (f"  side door {side:.2f} (val acc with door at that opening "
+                         f"{accuracy(params, cfg, val, side):.3f})") if getattr(cfg, "slot_side_door", False) else ""
                 print(f"  [{cfg.kind}] step {s:>5}  loss {float(loss):.4f}  val acc {acc:.3f}{extra}", flush=True)
             if checkpoint:
                 Path(checkpoint).parent.mkdir(parents=True, exist_ok=True)
