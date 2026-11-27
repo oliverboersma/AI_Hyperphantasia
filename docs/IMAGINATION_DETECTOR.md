@@ -295,6 +295,9 @@ before reading the question, which would be a standing scene. The small plain tr
 opposite. Neither observation says anything about the other: one is an unverified self-report from
 a large model, the other is a measurement of a tiny one.
 
+For an attempt to explain these results, with predictions that would test the explanation, see
+[INTERPRETATION.md](INTERPRETATION.md).
+
 ## 8. Limits
 
 * **Linear probes miss non-linear codes.** "Something else" means no *linearly decodable* scene
