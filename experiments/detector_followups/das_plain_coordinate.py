@@ -89,3 +89,23 @@ if __name__ == "__main__":
     print("   answer changes as it should " + "  ".join(f"{a:6.3f}" for a in per))
     print("   same, random direction      " + "  ".join(f"{a:6.3f}" for a in per_r))
     print(f"   overall {tot:.3f}   (random direction {tot_r:.3f})")
+
+    # 4. Does the middle of the line live in more directions? Place with the learned k-dim subspaces,
+    # setting x's whole k-dim code to its mean for rank r.
+    print("\n4. The same placement with learned subspaces of more directions (mean code for rank r):")
+    print("   k     " + "  ".join(f"r={r:<4}" for r in range(5)) + "  overall")
+    for k in (1, 2, 4):
+        U = u[:, None] if k == 1 else np.asarray(d.train(k, "move_x", "relations"))
+        Z = H @ U
+        M = np.stack([Z[xr == r].mean(0) for r in range(5)])
+        hit, cnt = np.zeros(5), np.zeros(5)
+        for r in range(5):
+            idx = np.where((yr != r) & (xr != r))[0]
+            want = (r < yr[idx]).astype(int)
+            idx, want = idx[want != unpatched[idx]], want[want != unpatched[idx]]
+            patched = H[idx] + (M[r] - H[idx] @ U) @ U.T
+            logits, _ = nets.forward(d.params, toks[idx], d.cfg, d.LAYER, jnp.asarray([d.POS]),
+                                     jnp.asarray(patched)[:, None, :], d.EYE)
+            hit[r] = (np.asarray(logits).argmax(-1) == want).sum(); cnt[r] = len(idx)
+        print(f"   {k:<5} " + "  ".join(f"{h / c:6.3f}" for h, c in zip(hit, cnt)) + f"  {hit.sum() / cnt.sum():.3f}",
+              flush=True)
