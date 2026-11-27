@@ -15,8 +15,10 @@ B. Coordinate or relation list? Source = the same letters in a new order. Transp
                  -> answer rank_src(x) < rank_base(y)
      relations:  x's site carries where the other letters lie relative to x, in the source world
                  -> answer rank_src(x) < rank_src(y), the source world's own answer
-   Scored on pairs where the two answers differ. DAS is also trained directly on each hypothesis's
-   targets; the better-aligned causal model reaches the higher interchange accuracy.
+   Each is scored on the pairs where its answer differs from the base answer (on pairs where only
+   the two hypotheses differ, the base answer already agrees with "coordinate" 86% of the time, so
+   that comparison says nothing; see das_plain_coordinate.py). DAS is also fitted to each
+   hypothesis's targets; the better-aligned causal model reaches the higher interchange accuracy.
 
 C. What the learned subspace holds: linear readouts of x's rank and of "is L left of x?".
 
@@ -127,14 +129,6 @@ def iia(kind, U, hyp):
     return float((predict(kind, U) == ans)[keep].mean())
 
 
-def follows_relations(U):
-    """On reorder pairs where the two hypotheses disagree: share of answers that follow 'relations'."""
-    _, _, tg = EVAL["reorder"]
-    rel, coord, ok = tg["relations"][0], tg["coordinate"][0], tg["coordinate"][1]
-    keep = ok & (rel != coord)
-    return float((predict("reorder", U) == rel)[keep].mean()), int(keep.sum())
-
-
 def rand(k, seed):
     return frame(jnp.asarray(np.random.default_rng(seed).normal(size=(D, k))))
 
@@ -149,16 +143,15 @@ if __name__ == "__main__":
         print(f"  k={k:<3} learned {iia('move_x', learned[k], 'relations'):.3f}   "
               f"random {iia('move_x', rand(k, k), 'relations'):.3f}", flush=True)
 
-    share, n = follows_relations(EYE)
-    print(f"\nB. New order of the same letters, {n} pairs where the hypotheses disagree.")
-    print("  Share of answers that follow 'relations' (the rest follow 'coordinate'):")
-    print(f"  whole site                          {share:.3f}")
-    for k in (4, 8):
-        print(f"  learned on move-x, k={k:<2}            {follows_relations(learned[k])[0]:.3f}")
-    print("  DAS trained on reorder pairs, k=8. Interchange accuracy under each hypothesis:")
-    for hyp in ("relations", "coordinate"):
-        U = train(8, "reorder", hyp, seed=5)
-        print(f"    {hyp:<11} {iia('reorder', U, hyp):.3f}", flush=True)
+    print("\nB. New order of the same letters. Interchange accuracy under each hypothesis, each scored on")
+    print("   the pairs where that hypothesis's answer differs from the base answer:")
+    print(f"  {'':<28} {'relations':>10} {'coordinate':>11}")
+    for name, U in [("whole site", EYE), ("learned on move-x, k=1", learned[1]),
+                    ("learned on move-x, k=8", learned[8])]:
+        print(f"  {name:<28} {iia('reorder', U, 'relations'):>10.3f} {iia('reorder', U, 'coordinate'):>11.3f}")
+    fit = {hyp: train(8, "reorder", hyp, seed=5) for hyp in ("relations", "coordinate")}
+    print(f"  {'DAS fitted to that hypothesis, k=8':<28} {iia('reorder', fit['relations'], 'relations'):>10.3f} "
+          f"{iia('reorder', fit['coordinate'], 'coordinate'):>11.3f}", flush=True)
 
     print("\nC. Linear readouts at x's site (held-out accuracy)")
     rng = np.random.default_rng(41)

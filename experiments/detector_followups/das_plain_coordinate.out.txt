@@ -1,0 +1,4 @@
+1. Reorder pairs where the hypotheses disagree (629):
+   base answer agrees with 'coordinate'      0.863
+   unpatched network agrees with 'coordinate' 0.852
+   whole-site transplant agrees              0.849
