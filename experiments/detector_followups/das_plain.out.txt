@@ -6,3 +6,11 @@ A. Move only x (held-out pairs whose answers differ). Answer follows the source:
   k=2   learned 0.846   random 0.017
   k=4   learned 0.848   random 0.034
   k=8   learned 0.850   random 0.036
+  k=16  learned 0.851   random 0.102
+
+B. New order of the same letters, 629 pairs where the hypotheses disagree.
+  Share of answers that follow 'relations' (the rest follow 'coordinate'):
+  whole site                          0.151
+  learned on move-x, k=4             0.183
+  learned on move-x, k=8             0.176
+  DAS trained on reorder pairs, k=8. Interchange accuracy under each hypothesis:
