@@ -4,3 +4,4 @@ A. Left-of, move only x (held-out pairs whose answers differ). Answer follows th
   whole site (64 dims)   0.857
   k=1   learned 0.768   random 0.059
   k=2   learned 0.861   random 0.063
+  k=4   learned 0.861   random 0.098
