@@ -9,3 +9,14 @@ bottleneck, mixed questions
   random edit of the same size                 flip 0.07   other pair unchanged 0.85   'x at new position' yes 0.06
   mean edit size relative to the slots: 0.14
   the real probe reads the counterfactual ranks from the edited slots: 0.99
+
+bottleneck, left-of only
+  probe rank accuracy on held-out slots: real 0.67, shuffled-label probe 0.20
+  evaluated on 567 puzzles the network answers correctly in both worlds
+  no edit                                      flip 0.00   other pair unchanged 1.00   'x at new position' yes n/a
+  transplant the real counterfactual slots (ceiling) flip 1.00   other pair unchanged 0.66   'x at new position' yes n/a
+  edit guided by the real probe                flip 0.17   other pair unchanged 0.80   'x at new position' yes n/a
+  edit guided by the shuffled-label probe      flip 0.00   other pair unchanged 1.00   'x at new position' yes n/a
+  random edit of the same size                 flip 0.08   other pair unchanged 0.82   'x at new position' yes n/a
+  mean edit size relative to the slots: 0.11
+  the real probe reads the counterfactual ranks from the edited slots: 1.00
