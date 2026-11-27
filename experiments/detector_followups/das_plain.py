@@ -37,7 +37,7 @@ sys.path.insert(0, str(ROOT))
 from hyperphantasia.detect import nets, probes, world as W  # noqa: E402
 
 PATH = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / ".cache/detect/plain_seed0_steps8000_curriculum.pkl"
-LAYER = 2
+LAYER = 2  # the best x-site layer in seeds 0, 1 and 2 (results/seed*/imagination_report.md)
 cfg, params, _ = nets.load(PATH)
 POS = nets.roles(cfg)["X"][0]
 D = cfg.d
