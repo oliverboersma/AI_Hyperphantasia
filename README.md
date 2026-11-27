@@ -185,9 +185,12 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   each run composes premises varies (73–90%).
 * **The Phantasm Slots networks**, which force everything through a slot bottleneck, never learned the
   task from scratch, in four slot designs. A side door, open early in training and then shut, let
-  one learn (95%). Even then its slots hold a compressed memory of the premises, not a scene of
-  positions, and it still composes when the question arrives. The architecture can force where
-  information is stored, but not that it becomes a picture. This is a small-scale finding.
+  one learn (95%). With left-of questions only, its slots hold a compressed memory rather than a
+  scene. A **pre-registered test** then added global questions ("is x at position k?"):
+  * **Plain transformer:** still forms no standing scene.
+  * **Bottleneck:** a linear readout still finds no scene in its slots, so the prediction failed as
+    registered. But a non-linear probe reads positions from them at 83% (raw premises: 35%). Cutting
+    off access and asking for global facts does create a standing scene, in a non-linear code.
 
 ## Layout
 

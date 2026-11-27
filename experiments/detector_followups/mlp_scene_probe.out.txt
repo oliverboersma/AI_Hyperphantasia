@@ -1,2 +1,6 @@
 MLP probe for each letter's rank (chance 0.20; held-out problems)
   bottleneck, mixed questions  trained slots    0.833
+  bottleneck, mixed questions  untrained slots  0.336
+  bottleneck, left-of only     trained slots    0.660
+  bottleneck, left-of only     untrained slots  0.336
+  raw premises (lossless)      one-hot grid     0.349

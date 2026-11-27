@@ -326,6 +326,19 @@ evidence, in miniature, for the Platonic Representation Hypothesis: what each ru
 largely a rotated version of the same thing. How well that code supports composition varies from
 run to run (73–90%).
 
+**Access × question type** (pre-registered in [INTERPRETATION.md](INTERPRETATION.md); results in
+`results/access_x_demand/`). Both networks were trained on a mix of left-of and "is x at position
+k?" questions, and learned both (5-letter worlds: plain 92.5%, bottleneck 85%).
+
+* **Plain transformer:** still no standing scene (scene-site transplant 4%, at baseline). Its code at
+  x did not become a coordinate (rank 58–68% vs surface 59%; rank directions not causal).
+* **Bottleneck:** the slots carry the answer (87%), but rank reads linearly at only 51%, so the
+  pre-registered prediction that the slots become a linearly readable scene **failed**.
+* **Exploratory:** an MLP probe reads rank from the slots at 0.83. That compares with 0.66 for the
+  left-of-only bottleneck, 0.34 for an untrained copy and 0.35 for the raw premises, and against a
+  0.60 ceiling for surface counts. So cutting the premises off and asking global questions does
+  produce a substantial standing scene, in a non-linear code. Its causal role is not yet isolated.
+
 **The architecture arm points the same way.** Trained from scratch, four designs that force
 everything through a slot bottleneck could not learn the task, while the same encoder and decoder
 without the bottleneck learned at the plain transformer's pace. A side door that was open during

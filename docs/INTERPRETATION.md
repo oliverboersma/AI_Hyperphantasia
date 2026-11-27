@@ -166,6 +166,48 @@ left-of questions.
 * **A fails** (a standing scene appears in the plain transformer): access does not matter the way
   the account says.
 
+## Results of the pre-registered test
+
+Both networks learned the position questions (5-letter worlds: plain 92.5%, bottleneck 85%), so
+the manipulation worked (`results/access_x_demand/`).
+
+| Prediction | Pre-registered criterion | Result |
+|---|---|---|
+| A: plain network, still no standing scene | scene-site transplant at baseline | **Held**: 4%, at baseline |
+| A: plain network, code at x becomes coordinate-like | rank readable well above surface counts, rank directions causal | **Failed**: 58–68% (surface counts 59%); rank directions 6% vs 9% random |
+| B: bottleneck slots become a scene | rank linearly readable from the slots above 0.8 | **Failed**: 51% (surface counts 60%), while transplanting the slots carries the answer (87%) |
+
+Also, at x's own token, rank is no more readable when the question asks for x's position than when
+it asks whether x is left of y (plain 71% in both; bottleneck 45% in both).
+
+**Exploratory follow-up (not pre-registered).** A linear probe can miss a non-linear code, so a
+small MLP probe was run (`experiments/detector_followups/mlp_scene_probe.py`). Because an MLP can
+compute ranks itself, the baseline is the same probe on a raw, lossless encoding of the premises.
+
+| Input to the MLP probe | Rank accuracy |
+|---|---|
+| Bottleneck slots, mixed questions | **0.83** |
+| Bottleneck slots, left-of questions only | 0.66 |
+| Untrained copy's slots | 0.34 |
+| Raw premises (lossless one-hot) | 0.35 |
+
+What the follow-up adds:
+
+* **The probe is not doing the work.** On the raw premises it reaches only 0.35.
+* **The slots hold more than surface counts.** Counts identify only the two ends of the line, which
+  caps any probe on them at 0.60.
+* **Global questions make the store more scene-like.** The bottleneck slots do hold a scene of
+  positions in a non-linear code, and adding position questions raised it from 0.66 to 0.83.
+
+**Reading.** As pre-registered, B failed, and the account as stated (a linearly readable scene forms
+when access is removed and questions need global facts) is wrong. The exploratory result rescues its
+idea in a different form. Removing access and adding global questions does produce a substantial
+standing scene, encoded non-linearly. It is not yet shown to be the part of the slots the answer is
+computed from (the slots as a whole are, at 87%). With access retained (the plain network), no
+standing scene forms at all, whatever the questions. The next test is causal: find the non-linear
+scene's directions (a learned rotation, or interventions guided by the MLP probe) and check that
+editing them moves the answer.
+
 ## What could make this wrong
 
 * **Hyperparameters.** The learning rate, initialisation and batch size were tuned for the plain

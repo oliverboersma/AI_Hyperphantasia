@@ -25,6 +25,16 @@ them, and composition still happens at the question. Next: a non-linear probe or
 on the slots (item 4), and dense questions (item 5), which should be the case where a slot scene
 pays.
 
+## 1b. Is the non-linear scene in the slots causally used?
+
+The bottleneck trained on mixed questions holds ranks in its slots in a non-linear code (MLP probe:
+0.83, against 0.35 for the raw premises). Learn a rotation of the slot space that isolates rank (a
+distributed alignment search), or use the MLP probe's gradients to edit rank, and check whether
+the answer follows the edited positions.
+
+**Settles.** Whether this is a scene the network computes from, or information that is merely
+present.
+
 ## 2. Compare forced scenes with on-demand codes
 
 Once item 1 yields a working network, fit a rotation (as in `rotation_transfer.py`) between its
