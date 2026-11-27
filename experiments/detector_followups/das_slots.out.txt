@@ -17,3 +17,5 @@ Interchange-intervention accuracy on held-out pairs whose answers differ (chance
   k=128  learned subspace 0.862   random subspace 0.341
 
 Where are letter positions? MLP rank probe (raw premises reach 0.35; all slots 0.83)
+  k=8    from the learned subspace only 0.641   from everything else 0.831
+  k=32   from the learned subspace only 0.736   from everything else 0.830
