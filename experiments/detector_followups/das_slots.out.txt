@@ -10,3 +10,10 @@ Interchange-intervention accuracy on held-out pairs whose answers differ (chance
     k=32 step 750 loss 0.309
     k=32 step 1000 loss 0.342
   k=32   learned subspace 0.831   random subspace 0.195
+    k=128 step 250 loss 0.386
+    k=128 step 500 loss 0.297
+    k=128 step 750 loss 0.338
+    k=128 step 1000 loss 0.290
+  k=128  learned subspace 0.862   random subspace 0.341
+
+Where are letter positions? MLP rank probe (raw premises reach 0.35; all slots 0.83)
