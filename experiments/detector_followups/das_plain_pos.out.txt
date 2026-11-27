@@ -1,0 +1,4 @@
+plain-pos_seed0_steps8000_curriculum.pkl, x's site in the second question, layer 2
+
+A. Left-of, move only x (held-out pairs whose answers differ). Answer follows the source:
+  whole site (64 dims)   0.857
