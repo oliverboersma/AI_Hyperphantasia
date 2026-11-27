@@ -2,3 +2,22 @@
    base answer agrees with 'coordinate'      0.863
    unpatched network agrees with 'coordinate' 0.819
    whole-site transplant agrees              0.804
+
+2. The learned direction, by x's rank (5-letter worlds):
+   rank        0       1       2       3       4
+   mean   -16.89    0.24    0.30    0.41   19.91
+   sd       1.97    2.10    2.06    2.12    2.89
+   rank correlation with x's rank: 0.791
+   surface counts' best linear guess of the rank: rank correlation 0.787
+   correlation with x's rank once surface counts are partialled out: 0.023
+
+3. Put x at rank r by setting the one number, on cases where that must change the answer:
+   r                                0       1       2       3       4
+   cases                         1788     900     758     938    1772
+   answer changes as it should  0.996   0.517   0.702   0.580   1.000
+   same, random direction       0.006   0.000   0.004   0.000   0.002
+   overall 0.827   (random direction 0.003)
+
+4. The same placement with learned subspaces of more directions (mean code for rank r):
+   k     r=0     r=1     r=2     r=3     r=4     overall
+   1      0.996   0.517   0.702   0.580   1.000  0.827
