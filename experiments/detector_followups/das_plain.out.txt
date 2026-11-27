@@ -14,3 +14,4 @@ B. New order of the same letters, 629 pairs where the hypotheses disagree.
   learned on move-x, k=4             0.183
   learned on move-x, k=8             0.176
   DAS trained on reorder pairs, k=8. Interchange accuracy under each hypothesis:
+    relations   0.424
