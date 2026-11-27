@@ -1,2 +1,7 @@
 Interchange-intervention accuracy on held-out pairs whose answers differ (chance-level disruption ~0.5)
   full transplant of the slots: 0.862
+    k=8 step 250 loss 0.411
+    k=8 step 500 loss 0.378
+    k=8 step 750 loss 0.297
+    k=8 step 1000 loss 0.332
+  k=8    learned subspace 0.830   random subspace 0.172
