@@ -14,3 +14,10 @@ B. New order of the same letters. Interchange accuracy under each hypothesis, ea
   whole site                        0.514       0.798
   learned on move-x, k=1            0.478       0.830
   learned on move-x, k=8            0.527       0.911
+  DAS fitted to that hypothesis, k=8      0.573       0.754
+
+C. Linear readouts at x's site (held-out accuracy)
+  whole site (64)  rank of x (chance 0.20) 0.582   'is L left of x?' (chance 0.50) 0.704
+  learned k=4      rank of x (chance 0.20) 0.603   'is L left of x?' (chance 0.50) 0.711
+  learned k=8      rank of x (chance 0.20) 0.595   'is L left of x?' (chance 0.50) 0.710
+  random k=8       rank of x (chance 0.20) 0.509   'is L left of x?' (chance 0.50) 0.699
