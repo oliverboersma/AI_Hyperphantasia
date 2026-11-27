@@ -1,0 +1,4 @@
+share of the 8-dim causal subspace lying in each slot (sums to 8):
+  slot 0: 0.82  slot 1: 1.31  slot 2: 0.86  slot 3: 1.96  slot 4: 1.83  slot 5: 1.22
+per learned direction, fraction in its biggest slot: 0.34  0.25  0.28  0.36  0.35  0.28  0.31  0.37
+(spread evenly would be 0.17 per direction; one slot each would be 1.00)

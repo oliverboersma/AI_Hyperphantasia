@@ -1,0 +1,4 @@
+answer follows the source world, on held-out pairs whose answers differ:
+  transplant the learned 8 dims only           0.830
+  transplant the other 376 dims only           0.188
+  transplant everything                        0.862

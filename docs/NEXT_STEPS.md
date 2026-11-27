@@ -36,9 +36,17 @@ the answer follows the edited positions.
 present.
 
 **Status: done** (`scene_edit.py`). Partly used: probe-guided edits flip the answer 22% of the time,
-against 7% for a random edit of the same size and 100% for the real slots of that world. A learned
-rotation (distributed alignment search) that searches for the causal directions directly, instead
-of trusting a probe's, is the natural follow-up.
+against 7% for a random edit of the same size and 100% for the real slots of that world.
+
+**Follow-up: done** (`das_slots.py`, `das_complement.py`, `das_structure.py`). Distributed alignment
+search found that 8 of the 384 slot dimensions carry the answer (83%, against 86% for all of them
+and 17% for random directions). The readable scene sits in the other 376 dimensions, and
+transplanting those alone moves the answer only 19% of the time. The causal code is a compact
+ordering code spread across every slot, and the readable scene beside it is mostly idle.
+
+**Open.** Is the idle copy a leftover of the side-door schedule? Run the same search on a second
+seed and on the left-of-only bottleneck, and check whether pruning the idle 376 dimensions costs
+any accuracy.
 
 ## 2. Compare forced scenes with on-demand codes
 
@@ -60,7 +68,8 @@ runs" hold beyond one run per design.
 ## 4. Read the on-demand code properly
 
 * **Learned rotation.** Use distributed alignment search: learn a rotation at x's site that isolates
-  one causal variable, instead of relying on probe directions.
+  one causal variable, instead of relying on probe directions. The same method already worked on
+  the bottleneck's slots (item 1b), so the code in `das_slots.py` can be reused.
 * **Candidate variables.** Test "rank of x", "letters left of x", and "distance to the nearest end".
 
 **Settles.** What exactly the plain transformer computes when it is asked, which is so far only

@@ -240,6 +240,53 @@ the answers the right way, but most of what drives them lies outside the directi
 The forced store carries a scene of positions, partially used, mixed with other information the
 answer also depends on. It is not a clean picture that the answer is read from.
 
+## Where the answer is actually read from: alignment search
+
+The probe-guided edit trusts the probe's directions. Distributed alignment search instead asks the
+network which directions it uses. `das_slots.py` learns an orthonormal subspace of the flattened
+slots (6 × 64 = 384 dimensions) such that transplanting only that subspace from a source world (the
+same letters in a different order) makes the frozen network answer as the source world would.
+Questions mix left-of and "is x at position k?". Interchange accuracy is measured on 2,000 held-out
+pairs whose two answers differ.
+
+| Transplant from the source world | Answer follows the source |
+|---|---|
+| all 384 dimensions | 0.862 |
+| learned 8-dimensional subspace | **0.830** |
+| learned 32 / 128 dimensions | 0.831 / 0.862 |
+| random 8 / 32 / 128 dimensions | 0.172 / 0.195 / 0.341 |
+| **everything except the learned 8** (376 dimensions, `das_complement.py`) | **0.188** |
+
+Where the letter positions can be read (MLP rank probe; raw premises 0.35, all slots 0.83):
+
+| Read from | k = 8 | k = 32 |
+|---|---|---|
+| the learned causal subspace only | 0.641 | 0.736 |
+| everything else | 0.831 | 0.830 |
+
+* **The network computes from a tiny code.** Eight directions out of 384 carry 96% of what the
+  whole slots carry (0.830 of 0.862). Larger subspaces add almost nothing.
+* **The readable scene is mostly idle.** The other 376 dimensions hold a scene the probe reads as
+  well as from the full slots (0.83), yet swapping them alone barely moves the answer (0.188, about
+  the level of 8 random dimensions and below 128 random ones). Base and source share their letters,
+  so what differs between them is the order, and that order information outside the 8 directions
+  goes unread.
+* **The causal code is an ordering code, though not the most readable one.** Positions read from
+  the 8 dimensions at 0.64, well above the raw premises (0.35), so the used code does carry the
+  order, in a form a small probe decodes less easily than the network's own decoder does.
+* **It is spread across slots.** Every slot holds part of the subspace (0.8 to 2.0 of its 8
+  dimensions), and each learned direction has only about a third of its weight in its biggest slot
+  (`das_structure.py`). It is not one letter per slot.
+
+**Reading.** This explains the 22% from the probe-guided edit. The probe's directions lie mostly in
+the large, readable, idle part of the slots and only leak into the 8 dimensions the answer depends
+on. The forced store holds the order twice: once as a compact code the decoder uses, and once as a
+redundant, easily readable copy it ignores. So a probe that finds a scene in a network does not show
+that the network uses it. Here the scene a probe found was real but mostly a by-product, and the
+scene the network used was much smaller than the one on display. One network and one seed; the
+redundant copy might be a leftover of training through the side door, which the same search on
+other runs could check.
+
 ## What could make this wrong
 
 * **Hyperparameters.** The learning rate, initialisation and batch size were tuned for the plain

@@ -194,6 +194,10 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   * **Causal test:** editing that scene flips the network's answer three times as often as a random
     edit of the same size (22% vs 7%), but far less than the full slots do (100%). It is partly
     used, not a clean picture.
+  * **Alignment search** explains why. The network reads its answer from just 8 of the 384 slot
+    dimensions (83% transfer, against 86% for all of them). The readable scene sits in the other
+    376, and swapping those alone barely moves the answer (19%). The store holds the order twice: a
+    small code that is used and a large, readable copy that is not.
 
 ## Layout
 

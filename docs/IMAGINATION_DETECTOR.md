@@ -341,6 +341,12 @@ k?" questions, and learned both (5-letter worlds: plain 92.5%, bottleneck 85%).
 * **Causal test** (`scene_edit.py`): editing the slots until the probe reads a different scene flips
   the answer 22% of the time, against 7% for a random edit of the same size and 100% for the real
   slots of that world. The scene is partly what the network computes from, not all of it.
+* **Alignment search** (`das_slots.py`, `das_complement.py`): a learned 8-dimensional subspace of
+  the 384 slot dimensions carries the answer almost as well as the whole slots (83% vs 86%; random 8
+  dimensions 17%). The other 376 dimensions hold the most readable scene (MLP 0.83), but
+  transplanting them alone moves the answer only 19% of the time. The network computes from a small
+  ordering code spread across all slots, and the readable scene beside it is mostly idle. That is
+  why the probe-guided edit only partly worked.
 
 **The architecture arm points the same way.** Trained from scratch, four designs that force
 everything through a slot bottleneck could not learn the task, while the same encoder and decoder
