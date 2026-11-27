@@ -21,3 +21,4 @@
 4. The same placement with learned subspaces of more directions (mean code for rank r):
    k     r=0     r=1     r=2     r=3     r=4     overall
    1      0.996   0.517   0.702   0.580   1.000  0.827
+   2      1.000   0.633   0.864   0.811   1.000  0.901
