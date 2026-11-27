@@ -16,3 +16,23 @@ B. Left-of, reordered world. Each hypothesis scored where its answer differs fro
 C. Position questions ('is x at position k?'); the source world puts x elsewhere.
    Answer follows the source:
   whole site                              0.753
+  k=1: learned on LEFT-OF only 0.586   learned on position questions 0.587   random 0.082
+       and the position-learned subspace on left-of move-x pairs: 0.696
+  k=2: learned on LEFT-OF only 0.740   learned on position questions 0.749   random 0.079
+       and the position-learned subspace on left-of move-x pairs: 0.829
+  overlap of the two learned subspaces, k=1: 0.890   (random pair: 0.003)
+  overlap of the two learned subspaces, k=2: 0.926   (random pair: 0.069)
+
+D. The left-of-learned direction by x's rank, at each question type's x site:
+   rank                0       1       2       3       4
+   left-of         11.88   -3.14   -2.86   -2.97  -15.41
+   position        12.02   -3.09   -2.81   -2.92  -15.33
+   rank correlation -0.716; beyond surface counts 0.010
+
+E. Placement: set x's code to its mean for rank r (cases where the answer must change)
+   left-of questions, answer changes as if x sat at r:
+   subspace                     r=0     r=1     r=2     r=3     r=4     overall
+   left-of-learned, k=1          0.982   0.372   0.591   0.580   0.936  0.774
+   left-of-learned, k=2          1.000   0.564   0.608   0.529   1.000  0.821
+   random direction              0.012   0.002   0.003   0.000   0.006  0.006
+   position questions:
