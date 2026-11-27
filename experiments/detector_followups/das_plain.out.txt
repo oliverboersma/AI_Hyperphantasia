@@ -4,3 +4,4 @@ A. Move only x (held-out pairs whose answers differ). Answer follows the source:
   whole site (64 dims)   0.816
   k=1   learned 0.802   random 0.017
   k=2   learned 0.846   random 0.017
+  k=4   learned 0.848   random 0.034
