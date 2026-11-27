@@ -191,6 +191,9 @@ This writes `results/imagination_report.md`. Results from our run (one seed, CPU
   * **Bottleneck:** a linear readout still finds no scene in its slots, so the prediction failed as
     registered. But a non-linear probe reads positions from them at 83% (raw premises: 35%). Cutting
     off access and asking for global facts does create a standing scene, in a non-linear code.
+  * **Causal test:** editing that scene flips the network's answer three times as often as a random
+    edit of the same size (22% vs 7%), but far less than the full slots do (100%). It is partly
+    used, not a clean picture.
 
 ## Layout
 

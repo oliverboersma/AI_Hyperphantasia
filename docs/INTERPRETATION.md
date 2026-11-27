@@ -208,6 +208,38 @@ standing scene forms at all, whatever the questions. The next test is causal: fi
 scene's directions (a learned rotation, or interventions guided by the MLP probe) and check that
 editing them moves the answer.
 
+## Causal test of the non-linear scene
+
+`experiments/detector_followups/scene_edit.py`. The slots were edited by gradient steps on the MLP
+rank probe until it read a counterfactual scene (x swapped with a letter beyond y, all other letters
+kept), and the network then ran on the edited slots. Results for the bottleneck trained on mixed
+questions, on 578 puzzles it answers correctly in both worlds:
+
+| Edit to the slots | Answer follows the edit | Unmoved pair keeps its answer | "x at new position?" → yes |
+|---|---|---|---|
+| none | 0% | 100% | 4% |
+| real slots of the counterfactual world (ceiling) | 100% | 72% | 94% |
+| **guided by the real probe** | **22%** | 80% | **16%** |
+| guided by a shuffled-label probe | 0% | 100% | 3% |
+| random edit of the same size | 7% | 85% | 6% |
+
+The edit worked on its own terms: afterwards the probe read the counterfactual ranks from the
+slots 99% of the time, for a change of 14% of the slots' size.
+
+* **The network partly follows the edited scene.** Probe-guided edits flip the answer about three
+  times as often as random edits of the same size (22% vs 7%), and make "is x at its new position?"
+  come out yes 16% of the time, against 6%. With 578 puzzles these gaps are far beyond chance.
+* **Only partly.** The real slots of that world flip the answer every time.
+* **Not selectively.** The edit disturbs answers about letters it did not move slightly more than a
+  random edit does (80% vs 85% unchanged).
+* **The left-of-only bottleneck shows the same pattern, a little weaker** (probe 0.67; flips 17%
+  vs 8%).
+
+**Reading.** The non-linear scene is partly the thing the network computes from: editing it moves
+the answers the right way, but most of what drives them lies outside the directions the probe reads.
+The forced store carries a scene of positions, partially used, mixed with other information the
+answer also depends on. It is not a clean picture that the answer is read from.
+
 ## What could make this wrong
 
 * **Hyperparameters.** The learning rate, initialisation and batch size were tuned for the plain

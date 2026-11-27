@@ -337,7 +337,10 @@ k?" questions, and learned both (5-letter worlds: plain 92.5%, bottleneck 85%).
 * **Exploratory:** an MLP probe reads rank from the slots at 0.83. That compares with 0.66 for the
   left-of-only bottleneck, 0.34 for an untrained copy and 0.35 for the raw premises, and against a
   0.60 ceiling for surface counts. So cutting the premises off and asking global questions does
-  produce a substantial standing scene, in a non-linear code. Its causal role is not yet isolated.
+  produce a substantial standing scene, in a non-linear code.
+* **Causal test** (`scene_edit.py`): editing the slots until the probe reads a different scene flips
+  the answer 22% of the time, against 7% for a random edit of the same size and 100% for the real
+  slots of that world. The scene is partly what the network computes from, not all of it.
 
 **The architecture arm points the same way.** Trained from scratch, four designs that force
 everything through a slot bottleneck could not learn the task, while the same encoder and decoder

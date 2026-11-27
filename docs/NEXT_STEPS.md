@@ -35,6 +35,11 @@ the answer follows the edited positions.
 **Settles.** Whether this is a scene the network computes from, or information that is merely
 present.
 
+**Status: done** (`scene_edit.py`). Partly used: probe-guided edits flip the answer 22% of the time,
+against 7% for a random edit of the same size and 100% for the real slots of that world. A learned
+rotation (distributed alignment search) that searches for the causal directions directly, instead
+of trusting a probe's, is the natural follow-up.
+
 ## 2. Compare forced scenes with on-demand codes
 
 Once item 1 yields a working network, fit a rotation (as in `rotation_transfer.py`) between its
