@@ -1,0 +1,2 @@
+Interchange-intervention accuracy on held-out pairs whose answers differ (chance-level disruption ~0.5)
+  full transplant of the slots: 0.862
